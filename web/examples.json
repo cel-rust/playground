@@ -1,0 +1,88 @@
+[
+  {
+    "name": "Authorize a request",
+    "expression": "request.method in ['GET', 'HEAD']\n  && request.path.startsWith('/api/')\n  && has(request.headers.authorization)\n  && request.roles.exists(role, role in allowed_roles)",
+    "input": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/users",
+        "headers": {
+          "authorization": "Bearer 7f3a",
+          "accept": "application/json"
+        },
+        "roles": ["reader", "auditor"]
+      },
+      "allowed_roles": ["admin", "auditor"]
+    }
+  },
+  {
+    "name": "Filter and reshape a list",
+    "expression": "orders\n  .filter(o, o.status == 'paid')\n  .map(o, {'id': o.id, 'total_cents': o.quantity * o.unit_cents})",
+    "input": {
+      "orders": [
+        { "id": "A-1", "status": "paid", "quantity": 2, "unit_cents": 1250 },
+        { "id": "A-2", "status": "pending", "quantity": 1, "unit_cents": 990 },
+        { "id": "A-3", "status": "paid", "quantity": 5, "unit_cents": 300 }
+      ]
+    }
+  },
+  {
+    "name": "Strings extension",
+    "expression": "{\n  'handle': user.name.trim().split(' ').map(s, s.lowerAscii()).join('.'),\n  'domain': user.email.substring(user.email.indexOf('@') + 1),\n  'shout': user.greeting.upperAscii().replace('!', '!!!')\n}",
+    "input": {
+      "user": {
+        "name": "  Ada Lovelace ",
+        "email": "ada@example.com",
+        "greeting": "hello!"
+      }
+    }
+  },
+  {
+    "name": "Lists extension",
+    "expression": "{\n  'tags': [post.tags, extra_tags].flatten().distinct().sort(),\n  'ranking': players.sortBy(p, -p.score).map(p, p.name)\n}",
+    "input": {
+      "post": { "tags": ["rust", "cel", "wasm"] },
+      "extra_tags": ["cel", "browser"],
+      "players": [
+        { "name": "kim", "score": 12 },
+        { "name": "lou", "score": 31 },
+        { "name": "max", "score": 20 }
+      ]
+    }
+  },
+  {
+    "name": "Math extension",
+    "expression": "{\n  'hottest': math.greatest(temperatures),\n  'coldest': math.least(temperatures),\n  'rounded': temperatures.map(t, math.round(t)),\n  'drift': math.abs(drift)\n}",
+    "input": {
+      "temperatures": [21.4, 19.8, 23.6],
+      "drift": -3
+    }
+  },
+  {
+    "name": "Base64 encoders",
+    "expression": "{\n  'encoded': base64.encode(bytes(message)),\n  'decoded': string(base64.decode(token))\n}",
+    "input": {
+      "message": "hello, wasm",
+      "token": "Y2VsLXJ1c3Q="
+    }
+  },
+  {
+    "name": "Optional values",
+    "expression": "{\n  'display': account.?profile.?nickname.orValue(account.name),\n  'quota': account.?quota.?limit,\n  'first_tag': account.?tags[?0].orValue('none')\n}",
+    "input": {
+      "account": {
+        "name": "ada",
+        "profile": {},
+        "tags": []
+      }
+    }
+  },
+  {
+    "name": "Timestamps and durations",
+    "expression": "{\n  'expires': timestamp(event.at) + duration(event.ttl),\n  'expired': timestamp(now) > timestamp(event.at) + duration(event.ttl),\n  'hour_in_paris': timestamp(event.at).getHours('Europe/Paris')\n}",
+    "input": {
+      "event": { "at": "2026-11-07T08:30:00Z", "ttl": "90m" },
+      "now": "2026-11-07T09:00:00Z"
+    }
+  }
+]

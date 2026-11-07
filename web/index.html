@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CEL playground</title>
+    <meta
+      name="description"
+      content="Evaluate Common Expression Language (CEL) expressions against JSON, with cel-rust compiled to WebAssembly, in your browser."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>CEL playground</h1>
+      <span id="version" class="muted">cel-rust</span>
+      <nav>
+        <select id="examples" aria-label="Load an example">
+          <option value="" selected disabled>Load an example…</option>
+        </select>
+        <button id="copy-link" type="button">Copy link</button>
+        <a id="report" href="https://github.com/cel-rust/cel-rust/issues/new?template=bug_report.yml" target="_blank" rel="noopener">Report a bug</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="pane expression">
+        <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
+        <textarea id="expression" rows="5" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+      </section>
+      <section class="pane input">
+        <label for="input">JSON input <span class="muted">its top-level keys are the variables</span></label>
+        <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+      </section>
+      <section class="pane output" data-state="pending">
+        <h2>Output <span id="status" class="muted"></span></h2>
+        <pre id="output" tabindex="0">Loading cel-rust…</pre>
+      </section>
+    </main>
+
+    <footer class="muted">
+      Evaluated in your browser by <a href="https://crates.io/crates/cel">cel-rust</a>, compiled to WebAssembly, with the standard library,
+      optional values, and the strings, lists, math and encoders extensions. Integral JSON numbers are <code>int</code>s, others
+      <code>double</code>s. <a href="https://github.com/cel-rust/playground">Source</a>
+    </footer>
+  </body>
+</html>

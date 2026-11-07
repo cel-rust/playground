@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # A new cel release opens a PR here; merging it deploys the playground.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: daily
+    allow:
+      - dependency-name: cel
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

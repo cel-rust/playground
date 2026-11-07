@@ -1,0 +1,22 @@
+[package]
+name = "cel-playground"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+description = "CEL expressions evaluated by cel-rust, compiled to WebAssembly, in the browser"
+repository = "https://github.com/cel-rust/playground"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cel = "0.15.0"
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
