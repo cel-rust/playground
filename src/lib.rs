@@ -6,6 +6,7 @@
 
 mod abi;
 mod ast;
+mod highlight;
 mod input;
 mod literal;
 mod tokens;

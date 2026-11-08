@@ -28,20 +28,20 @@ pub fn to_json(expression: &str) -> String {
     .to_string()
 }
 
-struct Source<'a> {
-    text: &'a str,
+pub(crate) struct Source<'a> {
+    pub(crate) text: &'a str,
     info: &'a SourceInfo,
     /// UTF-16 offsets, by UTF-8 offset, at char boundaries.
-    utf16: Vec<usize>,
+    pub(crate) utf16: Vec<usize>,
     /// The text, in UTF-16 code units.
-    units: Vec<u16>,
-    tokens: Vec<Token>,
+    pub(crate) units: Vec<u16>,
+    pub(crate) tokens: Vec<Token>,
     /// Which token starts at a UTF-16 offset.
     starts: HashMap<usize, usize>,
 }
 
 impl<'a> Source<'a> {
-    fn new(text: &'a str, info: &'a SourceInfo) -> Self {
+    pub(crate) fn new(text: &'a str, info: &'a SourceInfo) -> Self {
         let mut utf16 = vec![0; text.len() + 1];
         let mut units = 0;
         for (byte, c) in text.char_indices() {
@@ -67,7 +67,7 @@ impl<'a> Source<'a> {
 
     /// The UTF-16 range of node `id`: cel positions nodes at a token, in UTF-8
     /// offsets, its last byte included.
-    fn range(&self, id: u64) -> Option<(usize, usize)> {
+    pub(crate) fn range(&self, id: u64) -> Option<(usize, usize)> {
         let (start, stop) = self.info.offset_for(id)?;
         let (start, stop) = (start as usize, stop as usize);
         let end = (stop + 1..=self.text.len()).find(|&b| self.text.is_char_boundary(b))?;
@@ -76,19 +76,19 @@ impl<'a> Source<'a> {
             .then(|| (self.utf16[start], self.utf16[end]))
     }
 
-    fn token_at(&self, start: usize) -> Option<(usize, &Token)> {
+    pub(crate) fn token_at(&self, start: usize) -> Option<(usize, &Token)> {
         let index = *self.starts.get(&start)?;
         Some((index, &self.tokens[index]))
     }
 
-    fn token_text(&self, token: &Token) -> String {
+    pub(crate) fn token_text(&self, token: &Token) -> String {
         String::from_utf16_lossy(&self.units[token.start..token.end])
     }
 
     /// Whether the token at `start` is the node's own text, or `None` when it
     /// isn't, then what made the node: the macro whose call's `(` that is,
     /// or the parser.
-    fn made_by(&self, expr: &Expr, start: usize) -> Option<String> {
+    pub(crate) fn made_by(&self, expr: &Expr, start: usize) -> Option<String> {
         let Some((index, token)) = self.token_at(start) else {
             return Some("parser".to_owned());
         };

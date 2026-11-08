@@ -63,19 +63,30 @@ pub unsafe extern "C" fn evaluate(
     output(crate::evaluate(&expression, &input))
 }
 
-/// The tokens of the expression JavaScript wrote into an [`alloc`]ed buffer,
-/// as `[[start, end, kind], ...]` in UTF-16 code units; returns the length of
-/// that JSON, at [`output_ptr`].
+/// What to highlight in the expression, given the input, both written by
+/// JavaScript into [`alloc`]ed buffers, as JSON (see `highlight::to_json`);
+/// returns the length of that JSON, at [`output_ptr`].
 ///
 /// # Safety
 ///
-/// `ptr` and `len` are a buffer from [`alloc`], initialized up to `len`.
+/// Each pointer and length is a buffer from [`alloc`], initialized up to that
+/// length.
 #[no_mangle]
-pub unsafe extern "C" fn tokens(ptr: *const u8, len: usize) -> usize {
+pub unsafe extern "C" fn highlight(
+    expression_ptr: *const u8,
+    expression_len: usize,
+    input_ptr: *const u8,
+    input_len: usize,
+) -> usize {
     install_panic_hook();
     // SAFETY: per this function's contract.
-    let expression = unsafe { text(ptr, len) };
-    output(crate::tokens::to_json(&expression))
+    let (expression, input) = unsafe {
+        (
+            text(expression_ptr, expression_len),
+            text(input_ptr, input_len),
+        )
+    };
+    output(crate::highlight::to_json(&expression, &input))
 }
 
 /// The tree cel parses the expression JavaScript wrote into an [`alloc`]ed

@@ -10,7 +10,7 @@ const decoder = new TextDecoder();
 
 /**
  * @param {WebAssembly.Module} module the compiled cel_playground.wasm
- * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>, tokens(expression: string): Promise<Array<[number, number, string]> | null>}>}
+ * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>, highlight(expression: string, input: string): Promise<object | null>, ast(expression: string): Promise<object | null>}>}
  */
 export async function evaluator(module) {
   let instance = null;
@@ -80,11 +80,13 @@ export async function evaluator(module) {
     commit,
     evaluate: (expression, input) => outcome("evaluate", expression, input),
     /**
-     * The tokens of `expression` but whitespace: `[start, end, kind]`, in the
-     * string's own (UTF-16) indices; `null` if the instance trapped.
+     * What to highlight in `expression`, given `input`: `{tokens, marks,
+     * errors}`, as `[start, end, kind]`, `[start, end, class]` and `[start,
+     * end]`, in the string's own (UTF-16) indices (see src/highlight.rs);
+     * `null` if the instance trapped.
      */
-    async tokens(expression) {
-      const result = await call("tokens", expression);
+    async highlight(expression, input) {
+      const result = await call("highlight", expression, input);
       return result.text === undefined ? null : JSON.parse(result.text);
     },
     /**

@@ -14,6 +14,9 @@
   --tok-number: #0550ae;
   --tok-keyword: #8250df;
   --tok-operator: #953800;
+  --tok-function: #0e6e78;
+  --tok-bound: #8a5a00;
+  --tok-field: #44608c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +33,9 @@
     --tok-number: #79c0ff;
     --tok-keyword: #d2a8ff;
     --tok-operator: #ffa657;
+    --tok-function: #39c5cf;
+    --tok-bound: #e3b341;
+    --tok-field: #a5bce0;
   }
 }
 
@@ -194,6 +200,51 @@ main {
 .tok-invalid {
   color: var(--error);
   text-decoration: underline wavy var(--error);
+}
+
+/* What the parsed tree, or the place of an identifier, says it is. */
+.sem-function {
+  color: var(--tok-function);
+}
+
+.sem-macro {
+  color: var(--tok-keyword);
+}
+
+.sem-bound {
+  color: var(--tok-bound);
+}
+
+.sem-field {
+  color: var(--tok-field);
+}
+
+.sem-type {
+  color: var(--tok-number);
+}
+
+.sem-namespace {
+  color: var(--muted);
+}
+
+/* Not in the input: evaluating fails on it. */
+.sem-missing {
+  color: var(--error);
+  text-decoration: underline dotted var(--error);
+}
+
+.sem-error {
+  text-decoration: underline wavy var(--error);
+}
+
+/* The node the AST explorer's pointer is on. */
+.hovered {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 2px;
+}
+
+.ast-tree [data-start]:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 /* The AST explorer: a strip to open it, then the tree. */

@@ -7,8 +7,6 @@
 //! the identifier `X1`. Where that lexer would fail, on an unterminated string
 //! or a stray character, it still returns a token, so the rest highlights.
 
-use serde_json::json;
-
 /// What a token is, as the page styles it: `tok-<name>`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -77,15 +75,6 @@ pub fn tokens(source: &str) -> Vec<Token> {
         }
     }
     tokens
-}
-
-/// The tokens of `source` as JSON: `[[start, end, kind], ...]`.
-pub fn to_json(source: &str) -> String {
-    let tokens: Vec<_> = tokens(source)
-        .into_iter()
-        .map(|t| json!([t.start, t.end, t.kind.name()]))
-        .collect();
-    serde_json::Value::Array(tokens).to_string()
 }
 
 /// The token at `i`, `None` for whitespace, and the index it ends at.
@@ -520,13 +509,5 @@ mod tests {
                 "{source:?}: {rest:?}"
             );
         }
-    }
-
-    #[test]
-    fn json() {
-        assert_eq!(
-            to_json("a + 1"),
-            r#"[[0,1,"identifier"],[2,3,"operator"],[4,5,"number"]]"#
-        );
     }
 }

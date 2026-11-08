@@ -12,10 +12,14 @@ right away.
 - **Environment:** `Env::stdlib()`, with optional values, plus the strings,
   lists, math and encoders extensions.
 - **Highlighting:** the expression is highlighted as you type, whether it
-  parses or not.
+  parses or not. Once it parses, its identifiers are coloured by what the
+  parsed tree says they are: variables, variables missing from the input
+  (underlined), names a macro binds, functions, macros, fields, namespaces and
+  types. Parse errors are underlined where cel reports them.
 - **AST explorer:** the "AST" strip right of the editor opens the tree cel
   parses the expression into, macros expanded. What a macro or the parser made,
-  rather than text of the expression, is faded.
+  rather than text of the expression, is faded. Pointing at a node highlights
+  the token cel positions it at.
 - **Input:** a JSON object, whose top-level keys are the variables. Integral
   numbers are `int`s (`uint`s past `i64::MAX`), other numbers `double`s.
 - **Output:** the result as a CEL literal (`1u`, `1.0`, `b"\x00"`,
@@ -61,6 +65,13 @@ nothing from npm.
   one token; a node whose token doesn't spell it (an identifier its name, an
   operator its symbol, a call its name before a `(`) was made by the macro
   whose call's `(` it sits on, or by the parser.
+- `src/highlight.rs`: what the editor highlights, on every keystroke. Each
+  identifier the tree has a node for is resolved as cel would: bound by an
+  enclosing comprehension, a key of the input, a type, or missing. cel 0.15
+  can't be asked whether `ns.f` is a function, so a call's target is a
+  namespace when evaluating `ns.f()` with no variables doesn't read `ns`.
+  Identifiers without a node are told by where they are: before a `(`, after
+  a `.`.
 - `src/abi.rs`: the raw exports `web/cel.js` calls. No wasm-bindgen: strings
   go through buffers from `alloc`, the outcome comes back at `output_ptr`.
 - `web/cel.js`: the JavaScript side of that, shared by the page and the smoke

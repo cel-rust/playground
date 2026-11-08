@@ -117,13 +117,33 @@ function showCommit(commit) {
 
 // --- Highlighting: the expression's tokens, behind its transparent textarea ---
 
-function renderTokens(text, tokens) {
+/** What's drawn: the text, what to highlight in it, and the range the AST
+ * explorer's pointer is on. */
+let drawn = null;
+let hovered = null;
+
+/**
+ * Draws `text` with its tokens, each with what the tree says of it (`sem-*`)
+ * and whether a parse error is reported there.
+ */
+function renderTokens(text, { tokens, marks, errors }) {
+  drawn = { text, result: { tokens, marks, errors } };
+  const classes = new Map(marks.map(([start, end, name]) => [`${start}:${end}`, `sem-${name}`]));
+  const failing = new Set(errors.map(([start, end]) => `${start}:${end}`));
   const fragment = document.createDocumentFragment();
   let at = 0;
   for (const [start, end, kind] of tokens) {
     if (start > at) fragment.append(text.slice(at, start));
     const span = document.createElement("span");
-    span.className = `tok-${kind}`;
+    const key = `${start}:${end}`;
+    span.className = [
+      `tok-${kind}`,
+      classes.get(key),
+      failing.has(key) && "sem-error",
+      hovered && hovered.start === start && hovered.end === end && "hovered",
+    ]
+      .filter(Boolean)
+      .join(" ");
     span.textContent = text.slice(start, end);
     fragment.append(span);
     at = end;
@@ -131,8 +151,22 @@ function renderTokens(text, tokens) {
   // A <pre> doesn't show the empty line a final newline starts; a textarea
   // puts the caret on it, so give that line something.
   fragment.append(text.slice(at) + (text.endsWith("\n") ? " " : ""));
+  // An error at the end, where something is missing: underline a space
+  if (errors.some(([start, end]) => start === end && start >= text.length)) {
+    const missing = document.createElement("span");
+    missing.className = "sem-error";
+    missing.textContent = " ";
+    fragment.append(missing);
+  }
   highlight.replaceChildren(fragment);
   syncScroll();
+}
+
+/** Highlights `range` of the expression, as the explorer's pointer moves. */
+function hover(range) {
+  if (hovered?.start === range?.start && hovered?.end === range?.end) return;
+  hovered = range;
+  if (drawn?.text === expression.value) renderTokens(drawn.text, drawn.result);
 }
 
 function syncScroll() {
@@ -195,6 +229,10 @@ function astNode(node, path) {
       else folded.add(path);
     });
   }
+  if (node.start !== null) {
+    line.dataset.start = node.start;
+    line.dataset.end = node.end;
+  }
   if (node.from) {
     line.classList.add("ast-made");
     line.title =
@@ -204,6 +242,16 @@ function astNode(node, path) {
   }
   return element;
 }
+
+// Pointing at a node, or focusing it, highlights where cel positions it
+const rangeOf = (target) => {
+  const line = target instanceof Element ? target.closest("[data-start]") : null;
+  return line ? { start: Number(line.dataset.start), end: Number(line.dataset.end) } : null;
+};
+astTree.addEventListener("mouseover", (event) => hover(rangeOf(event.target)));
+astTree.addEventListener("mouseleave", () => hover(null));
+astTree.addEventListener("focusin", (event) => hover(rangeOf(event.target)));
+astTree.addEventListener("focusout", () => hover(null));
 
 function renderAst(text, result) {
   if (text.trim() === "") {
@@ -272,6 +320,8 @@ async function main() {
     const id = ++sequence;
     const state = { e: expression.value, i: input.value, ...(astOpen() && { a: true }) };
     refreshAst();
+    // The input decides which variables are missing
+    rehighlight();
     let outcome;
     if (state.e.trim() === "") {
       outcome = null;
@@ -288,16 +338,16 @@ async function main() {
     report.href = outcome ? issueUrl(cel, outcome) : `${ISSUES}?template=bug_report.yml`;
   }
 
-  // On every change, unlike evaluating: the typed text is transparent until
-  // its tokens are drawn.
+  // On every change of the expression, unlike evaluating: the typed text is
+  // transparent until its tokens are drawn.
   let highlighting = 0;
   async function rehighlight() {
     const id = ++highlighting;
     const text = expression.value;
-    const tokens = await cel.tokens(text);
+    const result = await cel.highlight(text, input.value);
     if (id !== highlighting) return;
-    if (tokens) {
-      renderTokens(text, tokens);
+    if (result) {
+      renderTokens(text, result);
       editor.classList.add("highlighting");
     } else {
       // The instance trapped: show the textarea's own text until it's back

@@ -30,14 +30,18 @@ test("passes text through as UTF-8", async () => {
   });
 });
 
-test("tokenizes, in the string's own indices", async () => {
-  assert.deepEqual(await cel.tokens("a + 1"), [
-    [0, 1, "identifier"],
-    [2, 3, "operator"],
-    [4, 5, "number"],
-  ]);
+test("highlights, in the string's own indices", async () => {
+  assert.deepEqual(await cel.highlight("a + 1", '{"a": 1}'), {
+    tokens: [
+      [0, 1, "identifier"],
+      [2, 3, "operator"],
+      [4, 5, "number"],
+    ],
+    marks: [[0, 1, "variable"]],
+    errors: [],
+  });
   const source = "'👋' + x";
-  const tokens = await cel.tokens(source);
+  const { tokens, marks } = await cel.highlight(source, "{}");
   assert.deepEqual(
     tokens.map(([start, end, kind]) => [source.slice(start, end), kind]),
     [
@@ -46,6 +50,8 @@ test("tokenizes, in the string's own indices", async () => {
       ["x", "identifier"],
     ],
   );
+  assert.deepEqual(marks, [[7, 8, "missing"]]);
+  assert.deepEqual((await cel.highlight("x +", "")).errors, [[3, 3]]);
 });
 
 test("parses into a tree, positioned in the string's own indices", async () => {
