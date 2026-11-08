@@ -13,12 +13,15 @@ right away.
   lists, math and encoders extensions.
 - **Highlighting:** the expression is highlighted as you type, whether it
   parses or not.
+- **AST explorer:** the "AST" strip right of the editor opens the tree cel
+  parses the expression into, macros expanded. What a macro or the parser made,
+  rather than text of the expression, is faded.
 - **Input:** a JSON object, whose top-level keys are the variables. Integral
   numbers are `int`s (`uint`s past `i64::MAX`), other numbers `double`s.
 - **Output:** the result as a CEL literal (`1u`, `1.0`, `b"\x00"`,
   `timestamp("...")`, `optional.none()`), so its type shows.
-- **Sharing:** the expression and input live in the URL fragment, so a link
-  reproduces them. "Report a bug" opens cel-rust's bug form with them filled in.
+- **Sharing:** the expression and input live in the URL fragment, as does
+  whether the AST explorer is open, so a link reproduces them. "Report a bug" opens cel-rust's bug form with them filled in.
 
 ## Running it locally
 
@@ -54,6 +57,10 @@ nothing from npm.
   indexes strings. cel 0.15's lexer isn't public, so this mirrors its rules
   (`CEL.g4`); a test checks it against the positions of what cel parses. The
   page draws them in a `<pre>` behind the expression's transparent textarea.
+- `src/ast.rs`: the parsed tree for the explorer. cel positions each node at
+  one token; a node whose token doesn't spell it (an identifier its name, an
+  operator its symbol, a call its name before a `(`) was made by the macro
+  whose call's `(` it sits on, or by the parser.
 - `src/abi.rs`: the raw exports `web/cel.js` calls. No wasm-bindgen: strings
   go through buffers from `alloc`, the outcome comes back at `output_ptr`.
 - `web/cel.js`: the JavaScript side of that, shared by the page and the smoke

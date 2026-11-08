@@ -27,9 +27,17 @@
     <main>
       <section class="pane expression">
         <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
-        <div class="editor">
-          <pre id="highlight" aria-hidden="true"></pre>
-          <textarea id="expression" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        <div class="expression-row">
+          <div class="editor">
+            <pre id="highlight" aria-hidden="true"></pre>
+            <textarea id="expression" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+          </div>
+          <aside id="ast" class="ast" data-open="false" aria-label="AST explorer">
+            <button id="ast-toggle" type="button" aria-expanded="false" aria-controls="ast-tree" title="The tree cel parses the expression into">
+              AST
+            </button>
+            <div id="ast-tree" class="ast-tree" hidden></div>
+          </aside>
         </div>
       </section>
       <section class="pane input">

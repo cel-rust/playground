@@ -5,6 +5,7 @@
 //! exports, strings in and a JSON outcome out (see `web/cel.js`).
 
 mod abi;
+mod ast;
 mod input;
 mod literal;
 mod tokens;

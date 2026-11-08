@@ -26,7 +26,8 @@ const ISSUES = "https://github.com/cel-rust/cel-rust/issues/new";
 const MAX_URL = 8000;
 const DEBOUNCE_MS = 150;
 
-// --- The URL fragment: `#s=` the deflated JSON of {e, i}, base64url ---
+// --- The URL fragment: `#s=` the deflated JSON of {e, i, a?}, base64url:
+// expression, input, and whether the AST explorer is open ---
 
 async function pipe(bytes, transform) {
   const stream = new Blob([bytes]).stream().pipeThrough(transform);
@@ -56,8 +57,8 @@ async function decodeState(hash) {
   if (!data) return null;
   try {
     const json = await pipe(fromBase64Url(data), new DecompressionStream("deflate-raw"));
-    const { e, i } = JSON.parse(new TextDecoder().decode(json));
-    return typeof e === "string" && typeof i === "string" ? { e, i } : null;
+    const { e, i, a } = JSON.parse(new TextDecoder().decode(json));
+    return typeof e === "string" && typeof i === "string" ? { e, i, a: a === true } : null;
   } catch (error) {
     console.warn("ignoring the state in the URL:", error);
     return null;
@@ -139,6 +140,90 @@ function syncScroll() {
   highlight.scrollLeft = expression.scrollLeft;
 }
 
+// --- The AST explorer: the tree cel parses the expression into ---
+
+const astPane = $("ast");
+const astToggle = $("ast-toggle");
+const astTree = $("ast-tree");
+/** The subtrees folded by hand, by their path from the root. */
+const folded = new Set();
+
+function setAstOpen(open) {
+  astPane.dataset.open = String(open);
+  astToggle.setAttribute("aria-expanded", String(open));
+  astTree.hidden = !open;
+}
+
+const astOpen = () => astPane.dataset.open === "true";
+
+function astNote(text) {
+  const note = document.createElement("p");
+  note.className = "ast-note";
+  note.textContent = text;
+  return note;
+}
+
+/** One node and its children: `<details>` when it has some, a row if not. */
+function astNode(node, path) {
+  const row = [];
+  const part = (className, text) => {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
+    row.push(span, " ");
+  };
+  if (node.role) part("ast-role", `${node.role}:`);
+  part("ast-kind", node.kind);
+  if (node.detail) part("ast-detail", node.detail);
+  if (node.text !== null && node.text !== node.detail) part("ast-text", node.text);
+  part("ast-id", `#${node.id}`);
+
+  let element;
+  let line;
+  if (node.children.length === 0) {
+    element = line = document.createElement("div");
+    element.className = "ast-leaf";
+    element.append(...row);
+  } else {
+    element = document.createElement("details");
+    element.open = !folded.has(path);
+    line = document.createElement("summary");
+    line.append(...row);
+    element.append(line, ...node.children.map((child, i) => astNode(child, `${path}/${i}`)));
+    element.addEventListener("toggle", () => {
+      if (element.open) folded.delete(path);
+      else folded.add(path);
+    });
+  }
+  if (node.from) {
+    line.classList.add("ast-made");
+    line.title =
+      node.from === "parser"
+        ? "Made by the parser, not text of the expression"
+        : `Made by the ${node.from}() macro: positioned at its call`;
+  }
+  return element;
+}
+
+function renderAst(text, result) {
+  if (text.trim() === "") {
+    astTree.classList.remove("stale");
+    astTree.replaceChildren(astNote("Type an expression to see its tree."));
+  } else if (result === null) {
+    astTree.replaceChildren(astNote("The WebAssembly instance trapped: no tree."));
+  } else if (!result.ok) {
+    // Keep the last tree that parsed, faded, rather than flicker while typing
+    const root = astTree.querySelector(".ast-root");
+    astTree.classList.add("stale");
+    astTree.replaceChildren(astNote("Doesn't parse: this is the last tree that did."), ...(root ? [root] : []));
+  } else {
+    const root = astNode(result.root, "0");
+    root.classList.add("ast-root");
+    astTree.classList.remove("stale");
+    astTree.replaceChildren(root);
+  }
+}
+
 // --- Evaluation ---
 
 function show(state, text, label) {
@@ -171,10 +256,22 @@ async function main() {
   $("version").textContent = `cel-rust ${cel.version}`;
   showCommit(cel.commit);
 
+  // Only while it's open: with the evaluation, not on every keystroke.
+  let astSequence = 0;
+  async function refreshAst() {
+    if (!astOpen()) return;
+    const id = ++astSequence;
+    const text = expression.value;
+    const result = text.trim() === "" ? null : await cel.ast(text);
+    if (id !== astSequence) return;
+    renderAst(text, result);
+  }
+
   let sequence = 0;
   async function run() {
     const id = ++sequence;
-    const state = { e: expression.value, i: input.value };
+    const state = { e: expression.value, i: input.value, ...(astOpen() && { a: true }) };
+    refreshAst();
     let outcome;
     if (state.e.trim() === "") {
       outcome = null;
@@ -228,6 +325,12 @@ async function main() {
     }
   });
 
+  astToggle.addEventListener("click", () => {
+    setAstOpen(!astOpen());
+    // Draws the tree, and keeps the URL in step
+    runNow();
+  });
+
   copyLink.addEventListener("click", async () => {
     await runNow();
     try {
@@ -261,6 +364,7 @@ async function main() {
   if (state) {
     expression.value = state.e;
     input.value = state.i;
+    setAstOpen(state.a);
     rehighlight();
   } else if (list.length > 0) {
     load(list[0]);

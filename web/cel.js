@@ -87,6 +87,14 @@ export async function evaluator(module) {
       const result = await call("tokens", expression);
       return result.text === undefined ? null : JSON.parse(result.text);
     },
+    /**
+     * The tree cel parses `expression` into: `{ok: true, root}` or
+     * `{ok: false, error}` (see src/ast.rs); `null` if the instance trapped.
+     */
+    async ast(expression) {
+      const result = await call("ast", expression);
+      return result.text === undefined ? null : JSON.parse(result.text);
+    },
     /** For tests: a panic, as the outcome of evaluating would report it. */
     panicForTests: () => outcome("panic_for_tests"),
   };

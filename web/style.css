@@ -121,11 +121,20 @@ main {
   height: 35dvh;
 }
 
+/* The editor, and the AST explorer to its right. */
+.expression-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
 /* The expression: a transparent textarea over the highlighted text, laid out
    alike so every character lands on its coloured twin. */
 .editor {
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -185,6 +194,110 @@ main {
 .tok-invalid {
   color: var(--error);
   text-decoration: underline wavy var(--error);
+}
+
+/* The AST explorer: a strip to open it, then the tree. */
+.ast {
+  display: flex;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ast[data-open="true"] {
+  flex: 0 0 40%;
+}
+
+#ast-toggle {
+  writing-mode: vertical-rl;
+  padding: 0.6rem 0.15rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ast[data-open="true"] #ast-toggle {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.ast-tree {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 0.5rem 0.6rem;
+  font: 13px/1.6 var(--mono);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ast-tree summary,
+.ast-leaf {
+  white-space: nowrap;
+  list-style: none;
+}
+
+.ast-tree summary {
+  cursor: pointer;
+}
+
+.ast-tree summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Rows line up whether they open or not. */
+.ast-tree summary::before,
+.ast-leaf::before {
+  display: inline-block;
+  width: 1.1em;
+  color: var(--muted);
+  content: "";
+}
+
+.ast-tree summary::before {
+  content: "▸";
+}
+
+.ast-tree details[open] > summary::before {
+  content: "▾";
+}
+
+.ast-tree details > details,
+.ast-tree details > .ast-leaf {
+  margin-left: 1.1em;
+}
+
+.ast-role,
+.ast-id {
+  color: var(--muted);
+}
+
+.ast-kind {
+  color: var(--tok-keyword);
+}
+
+.ast-text {
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.25em;
+}
+
+/* Made by a macro or the parser, not text of the expression. */
+.ast-made {
+  opacity: 0.5;
+}
+
+.ast-note {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-family: var(--sans);
+  white-space: normal;
+}
+
+.ast-tree.stale .ast-root {
+  opacity: 0.45;
 }
 
 label,
@@ -270,6 +383,35 @@ code {
 
   .pane.output pre {
     min-height: 10rem;
+  }
+
+  /* The explorer goes under the editor, opened by a bar */
+  .expression-row,
+  .ast {
+    flex-direction: column;
+  }
+
+  #ast-toggle {
+    writing-mode: horizontal-tb;
+    padding: 0.2rem;
+  }
+
+  .ast[data-open="true"] {
+    flex: none;
+  }
+
+  .ast-tree {
+    max-height: 40vh;
+  }
+
+  .pane.expression:has(.ast[data-open="true"]) {
+    height: auto;
+  }
+
+  .pane.expression:has(.ast[data-open="true"]) .editor {
+    flex: none;
+    height: 35vh;
+    height: 35dvh;
   }
 
   nav {

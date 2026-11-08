@@ -48,6 +48,16 @@ test("tokenizes, in the string's own indices", async () => {
   );
 });
 
+test("parses into a tree, positioned in the string's own indices", async () => {
+  const result = await cel.ast("'👋' + x");
+  assert.equal(result.ok, true);
+  const { root } = result;
+  assert.deepEqual([root.kind, root.detail, root.text, root.from], ["Call", "_+_", "+", null]);
+  const x = root.children[1];
+  assert.deepEqual([x.kind, x.detail, x.start, x.end], ["Ident", "x", 7, 8]);
+  assert.equal((await cel.ast("1 +")).ok, false);
+});
+
 test("reports errors by stage", async () => {
   assert.equal((await cel.evaluate("1 +", "{}")).stage, "parse");
   assert.equal((await cel.evaluate("1", "[]")).stage, "input");

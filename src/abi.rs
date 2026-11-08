@@ -78,6 +78,21 @@ pub unsafe extern "C" fn tokens(ptr: *const u8, len: usize) -> usize {
     output(crate::tokens::to_json(&expression))
 }
 
+/// The tree cel parses the expression JavaScript wrote into an [`alloc`]ed
+/// buffer into, as JSON (see `ast::to_json`); returns the length of that JSON,
+/// at [`output_ptr`].
+///
+/// # Safety
+///
+/// `ptr` and `len` are a buffer from [`alloc`], initialized up to `len`.
+#[no_mangle]
+pub unsafe extern "C" fn ast(ptr: *const u8, len: usize) -> usize {
+    install_panic_hook();
+    // SAFETY: per this function's contract.
+    let expression = unsafe { text(ptr, len) };
+    output(crate::ast::to_json(&expression))
+}
+
 /// The version of `cel` this build runs; returns its length, at [`output_ptr`].
 #[no_mangle]
 pub extern "C" fn cel_version() -> usize {
