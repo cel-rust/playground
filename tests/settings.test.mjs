@@ -1,4 +1,5 @@
-// The settings as localStorage keeps them: `node --test tests/`.
+// The settings as localStorage keeps them, and as the page applies them:
+// `node --test tests/`.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -17,15 +18,16 @@ class Memory {
 }
 
 const defaults = () => load(new Memory());
+const web = (file) => readFile(new URL(`../web/${file}`, import.meta.url), "utf8");
 
 test("each setting defaults to its first value", () => {
-  assert.deepEqual(defaults(), { theme: "system" });
+  assert.deepEqual(defaults(), { theme: "system", codeTheme: "github" });
 });
 
 test("keeps what it saves", () => {
   const storage = new Memory();
-  assert.equal(save(storage, { theme: "dark" }), true);
-  assert.deepEqual(load(storage), { theme: "dark" });
+  assert.equal(save(storage, { theme: "dark", codeTheme: "dracula" }), true);
+  assert.deepEqual(load(storage), { theme: "dark", codeTheme: "dracula" });
 });
 
 test("ignores what it can't take", () => {
@@ -35,8 +37,8 @@ test("ignores what it can't take", () => {
     assert.deepEqual(load(storage), defaults(), stored);
   }
   const storage = new Memory();
-  storage.setItem(STORAGE_KEY, '{"theme": "light", "gone": true}');
-  assert.deepEqual(load(storage), { theme: "light" });
+  storage.setItem(STORAGE_KEY, '{"theme": "light", "codeTheme": "monokai", "gone": true}');
+  assert.deepEqual(load(storage), { theme: "light", codeTheme: "github" });
 });
 
 test("does without storage", () => {
@@ -52,13 +54,24 @@ test("does without storage", () => {
   assert.equal(save(blocked, defaults()), false);
 });
 
-test("index.html applies the same theme before the page draws", async () => {
-  const html = await readFile(new URL("../web/index.html", import.meta.url), "utf8");
+test("index.html applies the same settings before the page draws", async () => {
+  const html = await web("index.html");
   assert.ok(html.includes(`localStorage.getItem("${STORAGE_KEY}")`));
-  // It sets the themes other than the default, which the stylesheet styles
-  assert.deepEqual(SETTINGS.theme.values, ["system", "light", "dark"]);
-  assert.ok(html.includes('if (theme === "light" || theme === "dark")'));
-  const css = await readFile(new URL("../web/style.css", import.meta.url), "utf8");
+  const names = html.match(/for \(const name of (\[[^\]]*\])\)/);
+  assert.ok(names, "the loop over the settings' names");
+  assert.deepEqual(JSON.parse(names[1]), Object.keys(SETTINGS));
+});
+
+test("the menu offers, and the stylesheet styles, each value", async () => {
+  const [html, css] = await Promise.all([web("index.html"), web("style.css")]);
+  for (const [name, { values }] of Object.entries(SETTINGS)) {
+    for (const value of values) {
+      assert.ok(html.includes(`name="${name}" value="${value}"`), `${name}: ${value} in the menu`);
+    }
+  }
+  for (const value of SETTINGS.codeTheme.values) {
+    assert.ok(css.includes(`[data-code-theme="${value}"] {`), `the ${value} code theme`);
+  }
   assert.ok(css.includes(':root:not([data-theme="light"])'));
   assert.ok(css.includes(':root[data-theme="dark"]'));
 });

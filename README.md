@@ -18,8 +18,7 @@ right away.
   types. Parse errors are underlined where cel reports them. The input is
   highlighted too, its top-level keys as variables, with where its JSON breaks
   underlined; so is the output. Past 20,000 characters, text is left plain.
-  The colours are [tokyonight](https://github.com/folke/tokyonight.nvim)'s
-  moon, in light mode too.
+  The colours are a code theme's, chosen in the settings.
 - **AST explorer:** the "AST" strip right of the editor opens the tree cel
   parses the expression into, macros expanded. What a macro or the parser made,
   rather than text of the expression, is faded. Pointing at a node highlights
@@ -30,8 +29,13 @@ right away.
   `timestamp("...")`, `optional.none()`), so its type shows.
 - **Sharing:** the expression and input live in the URL fragment, as does
   whether the AST explorer is open, so a link reproduces them. "Report a bug" opens cel-rust's bug form with them filled in.
-- **Settings:** the gear opens them: for now, a light or dark page, or the
-  system's. They're kept in the browser, for the next visit, not in links.
+- **Settings:** the gear opens them: a light or dark page, or the system's,
+  and the code theme: GitHub (the default), Catppuccin or Solarized, which
+  follow the page's light or dark, or Dracula or
+  [Tokyo Night](https://github.com/folke/tokyonight.nvim) Moon, dark either
+  way. Each theme's colours are its own project's, mapped to CEL's tokens in
+  `web/style.css`. They're kept in the browser, for the next visit, not in
+  links.
 
 ## Running it locally
 

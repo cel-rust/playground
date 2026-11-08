@@ -1,26 +1,24 @@
 // The page's settings: chosen in the menu behind the gear, kept in this
 // browser's localStorage, and applied again on the next visit.
 //
-// index.html applies the theme from the same key before the page draws, so
-// it doesn't flash: keep the two in step (tests/settings.test.mjs checks).
+// index.html applies them from the same key before the page draws, so the
+// page doesn't flash: keep the two in step (tests/settings.test.mjs checks).
 
 export const STORAGE_KEY = "cel-playground.settings";
 
 /**
  * Each setting, by the name its inputs in the menu have: the values it takes,
- * its default first, and how one applies.
+ * its default first. One applies as an attribute of the page, `data-<name>`
+ * (`data-code-theme` for `codeTheme`), which the stylesheet styles by.
  */
 export const SETTINGS = {
-  /** The page's colours; the code's are tokyonight moon's either way. */
-  theme: {
-    values: ["system", "light", "dark"],
-    apply(value) {
-      const root = document.documentElement;
-      if (value === "system") delete root.dataset.theme;
-      else root.dataset.theme = value;
-    },
-  },
+  /** The page's colours: the system's, light or dark. */
+  theme: { values: ["system", "light", "dark"] },
+  /** The code's; one with a light and a dark variant follows the page's. */
+  codeTheme: { values: ["github", "catppuccin", "solarized", "dracula", "tokyonight-moon"] },
 };
+
+const apply = (name, value) => (document.documentElement.dataset[name] = value);
 
 /**
  * The settings `storage` keeps: each the default where it keeps none, or
@@ -68,16 +66,23 @@ function localStorageOrNull() {
 export function setUpSettings(menu, toggle, storage = localStorageOrNull()) {
   const store = storage ?? { getItem: () => null, setItem() {} };
   const settings = load(store);
-  for (const [name, setting] of Object.entries(SETTINGS)) {
-    setting.apply(settings[name]);
+  for (const name of Object.keys(SETTINGS)) {
+    // What index.html applied, unless it isn't a value the setting takes
+    apply(name, settings[name]);
     for (const input of menu.querySelectorAll(`input[name="${name}"]`)) {
       input.checked = input.value === settings[name];
       input.addEventListener("change", () => {
         settings[name] = input.value;
-        setting.apply(input.value);
+        apply(name, input.value);
         save(store, settings);
       });
     }
+  }
+
+  // Each code theme's sample, in its colours
+  const sample = menu.querySelector("#code-sample").content;
+  for (const target of menu.querySelectorAll(".code-sample")) {
+    target.append(sample.cloneNode(true));
   }
 
   // Under the gear, right-aligned with it but within the page, which on a

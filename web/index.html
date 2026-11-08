@@ -9,10 +9,13 @@
       content="Evaluate Common Expression Language (CEL) expressions against JSON, with cel-rust compiled to WebAssembly, in your browser."
     />
     <script>
-      // The theme chosen in the settings (see settings.js), before the page draws
+      // The settings (see settings.js), before the page draws: each is a data-
+      // attribute the stylesheet styles by, which settings.js checks after
       try {
-        const theme = JSON.parse(localStorage.getItem("cel-playground.settings"))?.theme;
-        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+        const settings = JSON.parse(localStorage.getItem("cel-playground.settings"));
+        for (const name of ["theme", "codeTheme"]) {
+          if (typeof settings?.[name] === "string") document.documentElement.dataset[name] = settings[name];
+        }
       } catch {}
     </script>
     <link rel="stylesheet" href="style.css" />
@@ -46,7 +49,39 @@
             <label><input type="radio" name="theme" value="dark" />Dark</label>
           </div>
         </fieldset>
-        <p class="settings-note">The code is in tokyonight moon either way. Settings are kept in this browser.</p>
+        <fieldset>
+          <legend>Code theme</legend>
+          <div class="code-themes">
+            <label>
+              <input type="radio" name="codeTheme" value="github" />
+              <span class="code-theme-name">GitHub <small>light &amp; dark</small></span>
+              <span class="code-sample" data-code-theme="github"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="catppuccin" />
+              <span class="code-theme-name">Catppuccin <small>light &amp; dark</small></span>
+              <span class="code-sample" data-code-theme="catppuccin"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="solarized" />
+              <span class="code-theme-name">Solarized <small>light &amp; dark</small></span>
+              <span class="code-sample" data-code-theme="solarized"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="dracula" />
+              <span class="code-theme-name">Dracula <small>dark</small></span>
+              <span class="code-sample" data-code-theme="dracula"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="tokyonight-moon" />
+              <span class="code-theme-name">Tokyo Night Moon <small>dark</small></span>
+              <span class="code-sample" data-code-theme="tokyonight-moon"></span>
+            </label>
+          </div>
+        </fieldset>
+        <p class="settings-note">A theme with light and dark follows the page's. Settings are kept in this browser.</p>
+        <!-- What each code theme's sample shows, as the editor would highlight it -->
+        <template id="code-sample"><span class="sem-macro">has</span><span class="tok-bracket">(</span><span class="sem-variable">a</span><span class="tok-delimiter">.</span><span class="sem-field">b</span><span class="tok-bracket">)</span> <span class="tok-operator">&amp;&amp;</span> <span class="sem-function">size</span><span class="tok-bracket">(</span><span class="sem-variable">x</span><span class="tok-bracket">)</span> <span class="tok-keyword">in</span> <span class="tok-bracket">[</span><span class="tok-constant">1</span><span class="tok-delimiter">,</span> <span class="tok-string">'c'</span><span class="tok-bracket">]</span></template>
       </div>
     </header>
 

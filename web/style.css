@@ -2,6 +2,7 @@
    settings say light, or as they say dark (see settings.js). */
 :root {
   color-scheme: light;
+  --scheme: light;
   --bg: #f6f7f9;
   --surface: #ffffff;
   --text: #1c2128;
@@ -13,34 +14,12 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-  /* Code, in light mode as in dark: tokyonight's moon palette, by its names
-     (folke/tokyonight.nvim, lua/tokyonight/colors/moon.lua), and the colour
-     its highlight groups give each kind of token. */
-  --code-bg: #222436; /* bg */
-  --code-fg: #c8d3f5; /* fg: @variable */
-  --code-dim: #828bb8; /* fg_dark: @punctuation.bracket */
-  --code-faint: #636da6; /* comment: Comment */
-  --code-gutter: #3b4261; /* fg_gutter */
-  --code-line: #2f334d; /* bg_highlight: CursorLine */
-  --code-visual: #2d3f76; /* bg_visual, blue0 blended at 40%: Visual */
-  --code-selection: rgb(62 104 215 / 40%); /* the same, over whatever's under it */
-  --code-error: #ff757f; /* red */
-  --code-error-line: #c53b53; /* red1, its error colour: DiagnosticUnderlineError */
-  --tok-string: #c3e88d; /* green: String */
-  --tok-constant: #ff966c; /* orange: Constant, which numbers and booleans link to */
-  --tok-keyword: #fca7ea; /* purple: @keyword */
-  --tok-operator: #89ddff; /* blue5: @operator, @punctuation.delimiter */
-  --tok-function: #82aaff; /* blue: Function */
-  --tok-preproc: #86e1fc; /* cyan: PreProc, which macros and modules link to */
-  --tok-parameter: #ffc777; /* yellow: @variable.parameter */
-  --tok-member: #4fd6be; /* green1: @variable.member */
-  --tok-type: #589ed7; /* blue1 blended at 80%: @type.builtin */
-  --tok-constructor: #c099ff; /* magenta: @constructor */
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
+    --scheme: dark;
     --bg: #14171c;
     --surface: #1c2027;
     --text: #e3e7ed;
@@ -54,6 +33,7 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --scheme: dark;
   --bg: #14171c;
   --surface: #1c2027;
   --text: #e3e7ed;
@@ -62,6 +42,167 @@
   --accent: #f08a4b;
   --ok: #57c26f;
   --error: #ff7b72;
+}
+
+/* Code themes, as the settings choose one (see settings.js), for the page
+   or for one of the menu's samples: the colours of the code's panes and
+   tokens. A theme with a light and a dark variant follows the page's
+   (`--scheme`), by light-dark(). Each is mapped from the theme's own colours
+   for its syntax groups; where it colours operators as its keywords, they
+   take its plain text's colour instead, so keywords stand out. Colours only,
+   unlike some themes' italics: a slanted glyph could shift what follows
+   under the textarea. */
+
+/* GitHub Light and Dark, the default: Primer's syntax colours
+   (@primer/primitives 11.10.0, prettylights). */
+:root,
+[data-code-theme="github"] {
+  --code-scheme: var(--scheme);
+  --code-bg: light-dark(#ffffff, #0d1117); /* bgColor-default */
+  --code-fg: light-dark(#1f2328, #f0f6fc); /* fgColor-default */
+  --code-dim: light-dark(#59636e, #9198a1); /* fgColor-muted */
+  --code-faint: light-dark(#59636e, #9198a1);
+  --code-border: light-dark(#d1d9e0, #3d444d); /* borderColor-default */
+  --code-line: light-dark(#818b981f, #656c7633); /* bgColor-neutral-muted */
+  --code-visual: light-dark(#0969da33, #1f6feb66); /* selection-bgColor, the dark one fainter */
+  --code-selection: var(--code-visual);
+  --code-error: light-dark(#d1242f, #f85149); /* fgColor-danger */
+  --code-error-line: var(--code-error);
+  --tok-comment: light-dark(#59636e, #9198a1); /* comment */
+  --tok-string: light-dark(#0a3069, #a5d6ff); /* string */
+  --tok-constant: light-dark(#0550ae, #79c0ff); /* constant */
+  --tok-keyword: light-dark(#cf222e, #ff7b72); /* keyword */
+  --tok-operator: var(--code-fg); /* keyword, in GitHub's */
+  --tok-delimiter: var(--code-fg);
+  --tok-bracket: var(--code-fg);
+  --tok-function: light-dark(#6639ba, #d2a8ff); /* entity */
+  --tok-macro: var(--tok-function);
+  --tok-namespace: var(--code-fg);
+  --tok-bound: light-dark(#953800, #ffa657); /* variable, as parameters */
+  --tok-field: light-dark(#0550ae, #7ee787); /* entityTag, as JSON keys */
+  --tok-type: var(--tok-constant);
+  --code-node: var(--tok-function);
+}
+
+/* Catppuccin Latte and Mocha: its palette (catppuccin/palette), as its style
+   guide colours syntax. */
+[data-code-theme="catppuccin"] {
+  --code-scheme: var(--scheme);
+  --code-bg: light-dark(#eff1f5, #1e1e2e); /* base */
+  --code-fg: light-dark(#4c4f69, #cdd6f4); /* text */
+  --code-dim: light-dark(#7c7f93, #9399b2); /* overlay2 */
+  --code-faint: light-dark(#8c8fa1, #7f849c); /* overlay1 */
+  --code-border: light-dark(#bcc0cc, #45475a); /* surface1 */
+  --code-line: light-dark(#4c4f691a, #cdd6f41a); /* text at 10%: cursor line */
+  --code-visual: light-dark(#7c7f934d, #9399b24d); /* overlay2 at 30%: selection */
+  --code-selection: var(--code-visual);
+  --code-error: light-dark(#d20f39, #f38ba8); /* red: errors */
+  --code-error-line: var(--code-error);
+  --tok-comment: light-dark(#7c7f93, #9399b2); /* overlay2: comments */
+  --tok-string: light-dark(#40a02b, #a6e3a1); /* green: strings */
+  --tok-constant: light-dark(#fe640b, #fab387); /* peach: constants, numbers */
+  --tok-keyword: light-dark(#8839ef, #cba6f7); /* mauve: keywords */
+  --tok-operator: light-dark(#04a5e5, #89dceb); /* sky: operators */
+  --tok-delimiter: light-dark(#7c7f93, #9399b2); /* overlay2: braces, delimiters */
+  --tok-bracket: light-dark(#7c7f93, #9399b2);
+  --tok-function: light-dark(#1e66f5, #89b4fa); /* blue: functions */
+  --tok-macro: light-dark(#dc8a78, #f5e0dc); /* rosewater: macros */
+  --tok-namespace: light-dark(#df8e1d, #f9e2af); /* yellow: classes */
+  --tok-bound: light-dark(#e64553, #eba0ac); /* maroon: parameters */
+  --tok-field: light-dark(#1e66f5, #89b4fa); /* blue: properties */
+  --tok-type: light-dark(#df8e1d, #f9e2af); /* yellow: types */
+  --code-node: light-dark(#8839ef, #cba6f7); /* mauve */
+}
+
+/* Solarized light and dark: its palette and the colours of its vim scheme
+   (altercation/vim-colors-solarized), with the original green. */
+[data-code-theme="solarized"] {
+  --code-scheme: var(--scheme);
+  --code-bg: light-dark(#fdf6e3, #002b36); /* base3, base03 */
+  --code-fg: light-dark(#657b83, #839496); /* base00, base0: Normal */
+  --code-dim: light-dark(#93a1a1, #586e75); /* base1, base01 */
+  --code-faint: light-dark(#93a1a1, #586e75);
+  --code-border: light-dark(#eee8d5, #073642); /* base2, base02 */
+  --code-line: light-dark(#eee8d5, #073642); /* CursorLine */
+  --code-visual: light-dark(#93a1a166, #586e7580); /* base1, base01: Visual, see-through */
+  --code-selection: var(--code-visual);
+  --code-error: #dc322f; /* red: Error */
+  --code-error-line: #dc322f;
+  --tok-comment: light-dark(#93a1a1, #586e75); /* base1, base01: Comment */
+  --tok-string: #2aa198; /* cyan: Constant */
+  --tok-constant: #2aa198;
+  --tok-keyword: #859900; /* green: Statement */
+  --tok-operator: var(--code-fg); /* Statement, in Solarized */
+  --tok-delimiter: var(--code-fg);
+  --tok-bracket: var(--code-fg);
+  --tok-function: #268bd2; /* blue: Identifier */
+  --tok-macro: #cb4b16; /* orange: PreProc */
+  --tok-namespace: #cb4b16;
+  --tok-bound: #268bd2;
+  --tok-field: #268bd2;
+  --tok-type: #b58900; /* yellow: Type */
+  --code-node: #b58900;
+}
+
+/* Dracula, dark only: its palette and the token colours of its VS Code theme
+   (dracula/visual-studio-code). */
+[data-code-theme="dracula"] {
+  --code-scheme: dark;
+  --code-bg: #282a36; /* background */
+  --code-fg: #f8f8f2; /* foreground */
+  --code-dim: #6272a4; /* comment */
+  --code-faint: #6272a4;
+  --code-border: #44475a; /* selection */
+  --code-line: #44475a75; /* line highlight */
+  --code-visual: #44475a; /* selection */
+  --code-selection: #44475a80; /* the same, see-through */
+  --code-error: #ff5555; /* red */
+  --code-error-line: #ff5555;
+  --tok-comment: #6272a4; /* comment */
+  --tok-string: #f1fa8c; /* yellow: strings */
+  --tok-constant: #bd93f9; /* purple: constants */
+  --tok-keyword: #ff79c6; /* pink: keywords */
+  --tok-operator: var(--code-fg); /* pink, as keywords, in Dracula */
+  --tok-delimiter: var(--code-fg);
+  --tok-bracket: var(--code-fg);
+  --tok-function: #50fa7b; /* green: function names */
+  --tok-macro: #8be9fd; /* cyan: language built-ins */
+  --tok-namespace: var(--code-fg); /* as variables */
+  --tok-bound: #ffb86c; /* orange: parameters */
+  --tok-field: #8be9fd; /* cyan: property names */
+  --tok-type: #8be9fd; /* cyan: types */
+  --code-node: #bd93f9; /* purple */
+}
+
+/* Tokyo Night Moon, dark only: tokyonight.nvim's moon palette
+   (lua/tokyonight/colors/moon.lua), and the colours its highlight groups
+   give each kind of token. */
+[data-code-theme="tokyonight-moon"] {
+  --code-scheme: dark;
+  --code-bg: #222436; /* bg */
+  --code-fg: #c8d3f5; /* fg: @variable */
+  --code-dim: #828bb8; /* fg_dark */
+  --code-faint: #636da6; /* comment */
+  --code-border: #3b4261; /* fg_gutter */
+  --code-line: #2f334d; /* bg_highlight: CursorLine */
+  --code-visual: #2d3f76; /* bg_visual, blue0 blended at 40%: Visual */
+  --code-selection: rgb(62 104 215 / 40%); /* the same, see-through */
+  --code-error: #ff757f; /* red */
+  --code-error-line: #c53b53; /* red1, its error colour: DiagnosticUnderlineError */
+  --tok-comment: #636da6; /* comment: Comment */
+  --tok-string: #c3e88d; /* green: String */
+  --tok-constant: #ff966c; /* orange: Constant, which numbers and booleans link to */
+  --tok-keyword: #fca7ea; /* purple: @keyword */
+  --tok-operator: #89ddff; /* blue5: @operator */
+  --tok-delimiter: #89ddff; /* blue5: @punctuation.delimiter */
+  --tok-bracket: #828bb8; /* fg_dark: @punctuation.bracket */
+  --tok-function: #82aaff; /* blue: Function */
+  --tok-macro: #86e1fc; /* cyan: PreProc, which macros link to */
+  --tok-namespace: #86e1fc; /* cyan: PreProc, which modules link to */
+  --tok-bound: #ffc777; /* yellow: @variable.parameter */
+  --tok-field: #4fd6be; /* green1: @variable.member */
+  --tok-type: #589ed7; /* blue1 blended at 80%: @type.builtin */
+  --code-node: #c099ff; /* magenta: @constructor */
 }
 
 * {
@@ -150,7 +291,7 @@ button.icon svg {
   position: fixed;
   inset: auto;
   margin: 0;
-  width: 16rem;
+  width: 19rem;
   max-width: calc(100vw - 16px);
   padding: 0.75rem;
   color: var(--text);
@@ -164,6 +305,10 @@ button.icon svg {
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+.settings fieldset + fieldset {
+  margin-top: 0.75rem;
 }
 
 .settings legend {
@@ -195,8 +340,8 @@ button.icon svg {
   border-left: 1px solid var(--border);
 }
 
-/* The radio itself is hidden, but still focused and checked */
-.choices input {
+/* A choice's radio is hidden, but still focused and checked */
+.settings input[type="radio"] {
   position: absolute;
   inset: 0;
   margin: 0;
@@ -213,6 +358,57 @@ button.icon svg {
 .choices label:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+/* One of the code themes: its name, and a sample in its colours */
+.code-themes {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.code-themes label {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  font-weight: normal;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.code-themes label:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.code-themes label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.code-theme-name {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.code-theme-name small {
+  color: var(--muted);
+}
+
+.code-sample {
+  display: block;
+  padding: 0.25rem 0.45rem;
+  overflow: hidden;
+  font: 12px/1.5 var(--mono);
+  white-space: pre;
+  color: var(--code-fg);
+  background: var(--code-bg);
+  color-scheme: var(--code-scheme);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
 }
 
 .settings-note {
@@ -290,14 +486,13 @@ main {
   caret-color: var(--code-fg);
 }
 
-/* Colours only, unlike tokyonight's italic comments and keywords: a slanted
-   glyph could shift what follows. */
+/* The colours of the code theme (above). */
 .tok-comment {
-  color: var(--code-faint);
+  color: var(--tok-comment);
 }
 
 .tok-bracket {
-  color: var(--code-dim);
+  color: var(--tok-bracket);
 }
 
 .tok-string,
@@ -310,9 +505,12 @@ main {
   color: var(--tok-constant);
 }
 
-.tok-operator,
-.tok-delimiter {
+.tok-operator {
   color: var(--tok-operator);
+}
+
+.tok-delimiter {
+  color: var(--tok-delimiter);
 }
 
 /* `in`, and a reserved word where cel rejects it */
@@ -335,18 +533,21 @@ main {
   color: var(--tok-function);
 }
 
-.sem-macro,
+.sem-macro {
+  color: var(--tok-macro);
+}
+
 .sem-namespace {
-  color: var(--tok-preproc);
+  color: var(--tok-namespace);
 }
 
 /* A macro's parameter */
 .sem-bound {
-  color: var(--tok-parameter);
+  color: var(--tok-bound);
 }
 
 .sem-field {
-  color: var(--tok-member);
+  color: var(--tok-field);
 }
 
 .sem-type {
@@ -413,7 +614,7 @@ pre::selection,
   font: 13px/1.6 var(--mono);
   color: var(--code-fg);
   background: var(--code-bg);
-  color-scheme: dark;
+  color-scheme: var(--code-scheme);
   border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -460,12 +661,12 @@ pre::selection,
 }
 
 .ast-kind {
-  color: var(--tok-constructor);
+  color: var(--code-node);
 }
 
 .ast-text {
   color: var(--code-dim);
-  border: 1px solid var(--code-gutter);
+  border: 1px solid var(--code-border);
   border-radius: 4px;
   padding: 0 0.25em;
 }
@@ -510,7 +711,7 @@ pre {
   font: 14px/1.5 var(--mono);
   color: var(--code-fg);
   background: var(--code-bg);
-  color-scheme: dark;
+  color-scheme: var(--code-scheme);
   border: 1px solid var(--border);
   border-radius: 8px;
   tab-size: 2;
