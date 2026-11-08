@@ -61,7 +61,7 @@ export function save(storage, settings) {
 }
 
 /** localStorage, or null where the browser blocks it. */
-function localStorageOrNull() {
+export function localStorageOrNull() {
   try {
     return globalThis.localStorage ?? null;
   } catch {

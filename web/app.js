@@ -1,8 +1,10 @@
 // The page: highlights and evaluates as you type, or when asked (see the
-// settings), keeps its state in the URL fragment, and links to cel-rust's bug
-// form with what it evaluated.
+// settings), keeps its state in the URL fragment and what you last wrote in
+// the browser (see draft.js), and links to cel-rust's bug form with what it
+// evaluated.
 
 import { evaluator } from "./cel.js";
+import { loadDraft, saveDraft } from "./draft.js";
 import { setUpSettings } from "./settings.js";
 
 const $ = (id) => document.getElementById(id);
@@ -376,14 +378,24 @@ async function main() {
 
   const current = () => ({ e: expression.value, i: input.value, ...(astOpen() && { a: true }) });
 
-  // The URL, in step with what's there, evaluated or not
+  /**
+   * Where what's in the editors comes from: an `example` as loaded, a `link`
+   * as opened, or a `draft`, what someone wrote or edited, which the browser
+   * keeps for the next visit.
+   */
+  let origin = "example";
+  const keepDraft = () => origin === "draft" && saveDraft(current());
+
+  // The address bar, in step with what's there, evaluated or not; but not
+  // with an example as loaded, so that reloading resumes the draft
   let saving = 0;
   async function save(state) {
     const id = ++saving;
     const hash = `#s=${await encodeState(state)}`;
-    if (id === saving) history.replaceState(null, "", hash);
+    if (id === saving) history.replaceState(null, "", origin === "example" ? location.pathname + location.search : hash);
     return hash;
   }
+  const linkTo = async (state) => new URL(`#s=${await encodeState(state)}`, location.href).href;
 
   /** What was last evaluated, and what it came to; null before anything is. */
   let evaluated = null;
@@ -418,6 +430,7 @@ async function main() {
   /** What an edit leads to, and, with auto run on or when asked, evaluating. */
   async function update(evaluating) {
     clearTimeout(timer);
+    keepDraft();
     refreshAst();
     // The input decides which variables are missing
     rehighlight();
@@ -435,8 +448,15 @@ async function main() {
   const flush = () => update(autoRun());
   const runNow = () => update(true);
 
-  expression.addEventListener("input", schedule);
-  input.addEventListener("input", schedule);
+  // Editing makes what's there the draft, an example or a link included
+  const edited = () => {
+    origin = "draft";
+    schedule();
+  };
+  expression.addEventListener("input", edited);
+  input.addEventListener("input", edited);
+  // Within the debounce of the last keystroke, or with auto run off
+  addEventListener("pagehide", keepDraft);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
@@ -451,14 +471,16 @@ async function main() {
     flush();
   });
 
+  // Of what's there, whether the address bar has it or not (an example)
   copyLink.addEventListener("click", async () => {
     await flush();
+    const link = await linkTo(current());
     try {
-      await navigator.clipboard.writeText(location.href);
+      await navigator.clipboard.writeText(link);
       copyLink.textContent = "Copied";
       setTimeout(() => (copyLink.textContent = "Copy link"), 1500);
     } catch {
-      prompt("Copy this link:", location.href);
+      prompt("Copy this link:", link);
     }
   });
 
@@ -477,6 +499,7 @@ async function main() {
     examples.add(new Option(example.name, String(index)));
   }
   const load = (example) => {
+    origin = "example";
     expression.value = example.expression;
     input.value = JSON.stringify(example.input, null, 2);
     rehighlight();
@@ -491,16 +514,23 @@ async function main() {
     }
   });
 
+  // A link first, then what was last written, then the first example
   const state = await decodeState(location.hash);
+  const draft = state ? null : loadDraft();
   if (state) {
+    origin = "link";
     expression.value = state.e;
     input.value = state.i;
     setAstOpen(state.a);
-    rehighlight();
-    rehighlightInput();
+  } else if (draft) {
+    origin = "draft";
+    expression.value = draft.e;
+    input.value = draft.i;
   } else if (list.length > 0) {
     load(list[0]);
   }
+  rehighlight();
+  rehighlightInput();
   if (!autoRun()) show("pending", "Ctrl+Enter, or Run, evaluates the expression.");
   flush();
 }
