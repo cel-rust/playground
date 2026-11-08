@@ -32,6 +32,9 @@ right away. With auto run off in the settings, only that, or Run, evaluates.
   whether the AST explorer is open, so a link reproduces them. "Report a bug
   with this CEL expression", over the editor, opens cel-rust's bug form with
   them filled in, and what evaluating them came to.
+- **Resuming:** what you last wrote or edited, expression and input, is kept
+  in the browser: reloading, or coming back, resumes it. Loading an example
+  doesn't replace it, until you edit the example; a link opens as it is.
 - **Settings:** the gear opens them. Switches for auto run and syntax
   highlighting, both on, and for Advanced, off: what only who knows CEL
   needs, for now the AST explorer. A light or dark page, or the system's,
@@ -63,8 +66,8 @@ the scripts and the module from `file://` URLs.
 
 ```sh
 cargo test                                       # conversions, rendering, examples
-./build.sh && node --test tests/smoke.test.mjs   # the wasm, through web/cel.js
-node --test tests/settings.test.mjs              # the settings, as kept
+./build.sh && node --test tests/*.test.mjs       # the wasm, through web/cel.js;
+                                                 # the settings and draft, as kept
 ```
 
 The JavaScript tests need [Node.js](https://nodejs.org) (tested with 22), and
@@ -98,6 +101,9 @@ nothing from npm.
 - `web/cel.js`: the JavaScript side of that, shared by the page and the smoke
   test. A panic aborts the wasm instance; the message is reported and the
   next evaluation gets a fresh instance.
+- `web/draft.js`: what you last wrote, kept in localStorage. `app.js` keeps
+  an example out of the address bar until it's edited, so reloading resumes
+  the draft.
 - `web/settings.js`: the settings behind the gear, kept in localStorage.
   `index.html` applies the theme from it before the page draws, so it doesn't
   flash.
