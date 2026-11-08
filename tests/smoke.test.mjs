@@ -54,6 +54,28 @@ test("highlights, in the string's own indices", async () => {
   assert.deepEqual((await cel.highlight("x +", "")).errors, [[3, 3]]);
 });
 
+test("highlights the input, in the string's own indices", async () => {
+  const source = '{"👋": [1, true], "a": {"b": null}}';
+  const { tokens, marks, errors } = await cel.highlightInput(source);
+  const text = ([start, end, name]) => [source.slice(start, end), name];
+  assert.deepEqual(tokens.slice(0, 6).map(text), [
+    ["{", "punctuation"],
+    ['"👋"', "string"],
+    [":", "punctuation"],
+    ["[", "punctuation"],
+    ["1", "number"],
+    [",", "punctuation"],
+  ]);
+  assert.deepEqual(marks.map(text), [
+    ['"👋"', "variable"],
+    ['"a"', "variable"],
+    ['"b"', "field"],
+  ]);
+  assert.deepEqual(errors, []);
+  assert.deepEqual((await cel.highlightInput('{"👋": x}')).errors, [[7, 8]]);
+  assert.deepEqual((await cel.highlightInput('{"a": 1')).errors, [[7, 7]]);
+});
+
 test("parses into a tree, positioned in the string's own indices", async () => {
   const result = await cel.ast("'👋' + x");
   assert.equal(result.ok, true);

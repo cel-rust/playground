@@ -89,6 +89,21 @@ pub unsafe extern "C" fn highlight(
     output(crate::highlight::to_json(&expression, &input))
 }
 
+/// What to highlight in the JSON input JavaScript wrote into an [`alloc`]ed
+/// buffer, as JSON (see `json::to_json`); returns the length of that JSON, at
+/// [`output_ptr`].
+///
+/// # Safety
+///
+/// `ptr` and `len` are a buffer from [`alloc`], initialized up to `len`.
+#[no_mangle]
+pub unsafe extern "C" fn highlight_input(ptr: *const u8, len: usize) -> usize {
+    install_panic_hook();
+    // SAFETY: per this function's contract.
+    let input = unsafe { text(ptr, len) };
+    output(crate::json::to_json(&input))
+}
+
 /// The tree cel parses the expression JavaScript wrote into an [`alloc`]ed
 /// buffer into, as JSON (see `ast::to_json`); returns the length of that JSON,
 /// at [`output_ptr`].

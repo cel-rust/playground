@@ -8,6 +8,7 @@ mod abi;
 mod ast;
 mod highlight;
 mod input;
+mod json;
 mod literal;
 mod tokens;
 

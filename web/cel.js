@@ -10,7 +10,7 @@ const decoder = new TextDecoder();
 
 /**
  * @param {WebAssembly.Module} module the compiled cel_playground.wasm
- * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>, highlight(expression: string, input: string): Promise<object | null>, ast(expression: string): Promise<object | null>}>}
+ * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>, highlight(expression: string, input: string): Promise<object | null>, highlightInput(input: string): Promise<object | null>, ast(expression: string): Promise<object | null>}>}
  */
 export async function evaluator(module) {
   let instance = null;
@@ -87,6 +87,14 @@ export async function evaluator(module) {
      */
     async highlight(expression, input) {
       const result = await call("highlight", expression, input);
+      return result.text === undefined ? null : JSON.parse(result.text);
+    },
+    /**
+     * What to highlight in the JSON `input`, in the same shape (see
+     * src/json.rs); `null` if the instance trapped.
+     */
+    async highlightInput(input) {
+      const result = await call("highlight_input", input);
       return result.text === undefined ? null : JSON.parse(result.text);
     },
     /**

@@ -15,7 +15,9 @@ right away.
   parses or not. Once it parses, its identifiers are coloured by what the
   parsed tree says they are: variables, variables missing from the input
   (underlined), names a macro binds, functions, macros, fields, namespaces and
-  types. Parse errors are underlined where cel reports them.
+  types. Parse errors are underlined where cel reports them. The input is
+  highlighted too, its top-level keys as variables, with where its JSON breaks
+  underlined; so is the output. Past 20,000 characters, text is left plain.
 - **AST explorer:** the "AST" strip right of the editor opens the tree cel
   parses the expression into, macros expanded. What a macro or the parser made,
   rather than text of the expression, is faded. Pointing at a node highlights
@@ -72,6 +74,9 @@ nothing from npm.
   namespace when evaluating `ns.f()` with no variables doesn't read `ns`.
   Identifiers without a node are told by where they are: before a `(`, after
   a `.`.
+- `src/json.rs`: what the input highlights: its tokens, strictly JSON's, its
+  keys, and the token serde_json fails at. The output, a CEL literal, goes
+  through `src/highlight.rs` as an expression of no variables.
 - `src/abi.rs`: the raw exports `web/cel.js` calls. No wasm-bindgen: strings
   go through buffers from `alloc`, the outcome comes back at `output_ptr`.
 - `web/cel.js`: the JavaScript side of that, shared by the page and the smoke

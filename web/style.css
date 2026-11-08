@@ -202,7 +202,12 @@ main {
   text-decoration: underline wavy var(--error);
 }
 
-/* What the parsed tree, or the place of an identifier, says it is. */
+/* What the parsed tree, or the place of an identifier, says it is. In the
+   input, a top-level key is a variable, a nested one a field. */
+.sem-variable {
+  color: var(--text);
+}
+
 .sem-function {
   color: var(--tok-function);
 }
@@ -428,7 +433,7 @@ code {
     grid-template-rows: none;
   }
 
-  .pane.input textarea {
+  .pane.input .editor {
     min-height: 16rem;
   }
 

@@ -5,8 +5,6 @@ import { evaluator } from "./cel.js";
 
 const $ = (id) => document.getElementById(id);
 const expression = $("expression");
-const highlight = $("highlight");
-const editor = expression.closest(".editor");
 const input = $("input");
 const output = $("output");
 const outputPane = output.closest(".pane");
@@ -25,6 +23,10 @@ const STAGES = {
 const ISSUES = "https://github.com/cel-rust/cel-rust/issues/new";
 const MAX_URL = 8000;
 const DEBOUNCE_MS = 150;
+// Past this many characters, text isn't highlighted: a 20,000 character input
+// takes ~3 ms to highlight, on every keystroke, an output ~45 ms, mostly
+// parsing it back.
+const HIGHLIGHT_LIMIT = 20_000;
 
 // --- The URL fragment: `#s=` the deflated JSON of {e, i, a?}, base64url:
 // expression, input, and whether the AST explorer is open ---
@@ -115,19 +117,13 @@ function showCommit(commit) {
   }
 }
 
-// --- Highlighting: the expression's tokens, behind its transparent textarea ---
-
-/** What's drawn: the text, what to highlight in it, and the range the AST
- * explorer's pointer is on. */
-let drawn = null;
-let hovered = null;
+// --- Highlighting: tokens drawn in a <pre>, behind a transparent textarea ---
 
 /**
- * Draws `text` with its tokens, each with what the tree says of it (`sem-*`)
- * and whether a parse error is reported there.
+ * `text` as spans, one per token, each with what's said of it (`sem-*`) and
+ * whether an error is reported there; `hovered` is a range to highlight.
  */
-function renderTokens(text, { tokens, marks, errors }) {
-  drawn = { text, result: { tokens, marks, errors } };
+function spans(text, { tokens, marks, errors }, hovered = null) {
   const classes = new Map(marks.map(([start, end, name]) => [`${start}:${end}`, `sem-${name}`]));
   const failing = new Set(errors.map(([start, end]) => `${start}:${end}`));
   const fragment = document.createDocumentFragment();
@@ -158,21 +154,44 @@ function renderTokens(text, { tokens, marks, errors }) {
     missing.textContent = " ";
     fragment.append(missing);
   }
-  highlight.replaceChildren(fragment);
-  syncScroll();
+  return fragment;
 }
 
-/** Highlights `range` of the expression, as the explorer's pointer moves. */
-function hover(range) {
-  if (hovered?.start === range?.start && hovered?.end === range?.end) return;
-  hovered = range;
-  if (drawn?.text === expression.value) renderTokens(drawn.text, drawn.result);
+/** The highlighting of `textarea`, drawn in the <pre> behind it. */
+function overlay(textarea) {
+  const editor = textarea.closest(".editor");
+  const pre = editor.querySelector("pre");
+  /** What's drawn: the text, and what to highlight in it. */
+  let drawn = null;
+  let hovered = null;
+  const syncScroll = () => {
+    pre.scrollTop = textarea.scrollTop;
+    pre.scrollLeft = textarea.scrollLeft;
+  };
+  const draw = () => {
+    pre.replaceChildren(spans(drawn.text, drawn.result, hovered));
+    syncScroll();
+  };
+  textarea.addEventListener("scroll", syncScroll);
+  return {
+    /** Draws what to highlight in `text`; `null` shows the textarea's own text. */
+    show(text, result) {
+      drawn = result && { text, result };
+      if (drawn) draw();
+      else pre.replaceChildren();
+      editor.classList.toggle("highlighting", drawn !== null);
+    },
+    /** Highlights `range`, as the AST explorer's pointer moves. */
+    hover(range) {
+      if (hovered?.start === range?.start && hovered?.end === range?.end) return;
+      hovered = range;
+      if (drawn?.text === textarea.value) draw();
+    },
+  };
 }
 
-function syncScroll() {
-  highlight.scrollTop = expression.scrollTop;
-  highlight.scrollLeft = expression.scrollLeft;
-}
+const expressionView = overlay(expression);
+const inputView = overlay(input);
 
 // --- The AST explorer: the tree cel parses the expression into ---
 
@@ -248,10 +267,10 @@ const rangeOf = (target) => {
   const line = target instanceof Element ? target.closest("[data-start]") : null;
   return line ? { start: Number(line.dataset.start), end: Number(line.dataset.end) } : null;
 };
-astTree.addEventListener("mouseover", (event) => hover(rangeOf(event.target)));
-astTree.addEventListener("mouseleave", () => hover(null));
-astTree.addEventListener("focusin", (event) => hover(rangeOf(event.target)));
-astTree.addEventListener("focusout", () => hover(null));
+astTree.addEventListener("mouseover", (event) => expressionView.hover(rangeOf(event.target)));
+astTree.addEventListener("mouseleave", () => expressionView.hover(null));
+astTree.addEventListener("focusin", (event) => expressionView.hover(rangeOf(event.target)));
+astTree.addEventListener("focusout", () => expressionView.hover(null));
 
 function renderAst(text, result) {
   if (text.trim() === "") {
@@ -274,9 +293,11 @@ function renderAst(text, result) {
 
 // --- Evaluation ---
 
-function show(state, text, label) {
+/** Shows `text` in the output, highlighted if `result` says how. */
+function show(state, text, label, result = null) {
   outputPane.dataset.state = state;
-  output.textContent = text;
+  if (result) output.replaceChildren(spans(text, result));
+  else output.textContent = text;
   status.textContent = label ? `· ${label}` : "";
 }
 
@@ -315,6 +336,38 @@ async function main() {
     renderAst(text, result);
   }
 
+  /**
+   * Highlights `textarea` with `highlighter` on every change, unlike
+   * evaluating: the typed text is transparent until its tokens are drawn.
+   * Returns what redraws it.
+   */
+  function highlighting(textarea, view, highlighter) {
+    let sequence = 0;
+    async function refresh() {
+      const id = ++sequence;
+      const text = textarea.value;
+      // Too long to redraw on each keystroke, or the instance trapped: the
+      // textarea shows its own text
+      const result = text.length > HIGHLIGHT_LIMIT ? null : await highlighter(text);
+      if (id === sequence) view.show(text, result);
+    }
+    textarea.addEventListener("input", refresh);
+    return refresh;
+  }
+  const rehighlight = highlighting(expression, expressionView, (text) => cel.highlight(text, input.value));
+  const rehighlightInput = highlighting(input, inputView, (text) => cel.highlightInput(text));
+
+  /**
+   * The value, a CEL literal, highlighted as an expression: of no variables
+   * (`null` isn't an object, so none is missing), and not underlined where it
+   * doesn't parse back, as past cel's nesting limit.
+   */
+  async function highlightValue(value) {
+    if (value.length > HIGHLIGHT_LIMIT) return null;
+    const result = await cel.highlight(value, "null");
+    return result && { ...result, errors: [] };
+  }
+
   let sequence = 0;
   async function run() {
     const id = ++sequence;
@@ -328,8 +381,9 @@ async function main() {
       show("pending", "Type an expression above.");
     } else {
       outcome = await cel.evaluate(state.e, state.i);
+      const highlighted = outcome.ok ? await highlightValue(outcome.value) : null;
       if (id !== sequence) return;
-      if (outcome.ok) show("ok", outcome.value);
+      if (outcome.ok) show("ok", outcome.value, null, highlighted);
       else show("error", outcome.error, STAGES[outcome.stage] ?? outcome.stage);
     }
     const hash = `#s=${await encodeState(state)}`;
@@ -337,25 +391,6 @@ async function main() {
     history.replaceState(null, "", hash);
     report.href = outcome ? issueUrl(cel, outcome) : `${ISSUES}?template=bug_report.yml`;
   }
-
-  // On every change of the expression, unlike evaluating: the typed text is
-  // transparent until its tokens are drawn.
-  let highlighting = 0;
-  async function rehighlight() {
-    const id = ++highlighting;
-    const text = expression.value;
-    const result = await cel.highlight(text, input.value);
-    if (id !== highlighting) return;
-    if (result) {
-      renderTokens(text, result);
-      editor.classList.add("highlighting");
-    } else {
-      // The instance trapped: show the textarea's own text until it's back
-      editor.classList.remove("highlighting");
-    }
-  }
-  expression.addEventListener("input", rehighlight);
-  expression.addEventListener("scroll", syncScroll);
 
   let timer;
   const schedule = () => {
@@ -400,6 +435,7 @@ async function main() {
     expression.value = example.expression;
     input.value = JSON.stringify(example.input, null, 2);
     rehighlight();
+    rehighlightInput();
   };
   examples.addEventListener("change", () => {
     const example = list[Number(examples.value)];
@@ -416,6 +452,7 @@ async function main() {
     input.value = state.i;
     setAstOpen(state.a);
     rehighlight();
+    rehighlightInput();
   } else if (list.length > 0) {
     load(list[0]);
   }

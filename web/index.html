@@ -29,7 +29,7 @@
         <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
         <div class="expression-row">
           <div class="editor">
-            <pre id="highlight" aria-hidden="true"></pre>
+            <pre aria-hidden="true"></pre>
             <textarea id="expression" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
           </div>
           <aside id="ast" class="ast" data-open="false" aria-label="AST explorer">
@@ -42,7 +42,10 @@
       </section>
       <section class="pane input">
         <label for="input">JSON input <span class="muted">its top-level keys are the variables</span></label>
-        <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        <div class="editor">
+          <pre aria-hidden="true"></pre>
+          <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        </div>
       </section>
       <section class="pane output" data-state="pending">
         <h2>Output <span id="status" class="muted"></span></h2>
