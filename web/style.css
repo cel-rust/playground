@@ -109,6 +109,13 @@ main {
 
 .pane.expression {
   grid-column: 1 / -1;
+  height: 35vh;
+  height: 35dvh;
+}
+
+.pane.expression textarea {
+  min-height: 0;
+  resize: none;
 }
 
 label,
