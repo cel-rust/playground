@@ -26,6 +26,7 @@
   --code-error-line: #c53b53; /* red1, its error colour: DiagnosticUnderlineError */
   --tok-string: #c3e88d; /* green: String */
   --tok-constant: #ff966c; /* orange: Constant, which numbers and booleans link to */
+  --tok-keyword: #fca7ea; /* purple: @keyword */
   --tok-operator: #89ddff; /* blue5: @operator, @punctuation.delimiter */
   --tok-function: #82aaff; /* blue: Function */
   --tok-preproc: #86e1fc; /* cyan: PreProc, which macros and modules link to */
@@ -202,11 +203,14 @@ main {
   color: var(--tok-constant);
 }
 
-/* `in`: @keyword.operator, an operator */
-.tok-keyword,
 .tok-operator,
 .tok-delimiter {
   color: var(--tok-operator);
+}
+
+/* `in`, and a reserved word where cel rejects it */
+.tok-keyword {
+  color: var(--tok-keyword);
 }
 
 .tok-invalid {

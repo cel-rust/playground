@@ -6,6 +6,9 @@
 //! so `.5` is a number but `1.` is a number then a dot, and `0X1` is `0` then
 //! the identifier `X1`. Where that lexer would fail, on an unterminated string
 //! or a stray character, it still returns a token, so the rest highlights.
+//!
+//! Past the lexer, a word cel's parser reserves is a keyword where the parser
+//! rejects it, an identifier where it takes it.
 
 /// What a token is, as the page styles it: `tok-<name>`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,7 +19,7 @@ pub enum Kind {
     Number,
     /// `true`, `false` and `null`.
     Constant,
-    /// `in`.
+    /// `in`, and a reserved word where cel rejects it (see [`RESERVED`]).
     Keyword,
     Identifier,
     Operator,
@@ -78,7 +81,85 @@ pub fn tokens(source: &str) -> Vec<Token> {
             });
         }
     }
+    reserve(source, &mut tokens);
     tokens
+}
+
+/// The words cel reserves, as `is_reserved_id` in its parser lists them, after
+/// cel-go's.
+pub const RESERVED: [&str; 17] = [
+    "as",
+    "break",
+    "const",
+    "continue",
+    "else",
+    "for",
+    "function",
+    "if",
+    "import",
+    "let",
+    "loop",
+    "namespace",
+    "package",
+    "return",
+    "var",
+    "void",
+    "while",
+];
+
+/// Makes a keyword of each reserved word cel rejects: as an identifier, a
+/// function's name, a map key, a macro's variable. It takes one as the name
+/// of a field, selected (`a.if`, `a.?if()`) or in a message literal
+/// (`Foo{if: 1}`), and of a message (`if{}`).
+fn reserve(source: &str, tokens: &mut [Token]) {
+    let units: Vec<u16> = source.encode_utf16().collect();
+    // The tokens but comments, by index, and their text
+    let code: Vec<usize> = (0..tokens.len())
+        .filter(|&i| tokens[i].kind != Kind::Comment)
+        .collect();
+    let texts: Vec<String> = code
+        .iter()
+        .map(|&i| String::from_utf16_lossy(&units[tokens[i].start..tokens[i].end]))
+        .collect();
+    let kind = |p: usize| tokens[code[p]].kind;
+    let is = |p: Option<usize>, any: &[&str]| p.is_some_and(|p| any.contains(&texts[p].as_str()));
+    // What a `.` after it selects from: `a`, `(a)`, `[a]`, `'s'`, `1`...
+    let ends_operand = |p: Option<usize>| {
+        p.is_some_and(|p| match kind(p) {
+            Kind::Identifier | Kind::String | Kind::Bytes | Kind::Number | Kind::Constant => true,
+            Kind::Bracket => matches!(texts[p].as_str(), ")" | "]" | "}"),
+            _ => false,
+        })
+    };
+
+    // For each open bracket, whether it's a message literal's `{`
+    let mut open: Vec<bool> = Vec::new();
+    let mut rejected = Vec::new();
+    for p in 0..code.len() {
+        let back = |n: usize| p.checked_sub(n);
+        match (kind(p), texts[p].as_str()) {
+            (Kind::Bracket, "{") => open.push(back(1).is_some_and(|q| kind(q) == Kind::Identifier)),
+            (Kind::Bracket, "(" | "[") => open.push(false),
+            (Kind::Bracket, _) => {
+                open.pop();
+            }
+            (Kind::Identifier, word) if RESERVED.contains(&word) => {
+                let selected = (is(back(1), &["."]) && ends_operand(back(2)))
+                    || (is(back(1), &["?"]) && is(back(2), &["."]) && ends_operand(back(3)));
+                let names_message = is(Some(p + 1).filter(|&q| q < code.len()), &["{"]);
+                let names_field = open.last() == Some(&true)
+                    && (is(back(1), &["{", ","])
+                        || (is(back(1), &["?"]) && is(back(2), &["{", ","])));
+                if !(selected || names_message || names_field) {
+                    rejected.push(code[p]);
+                }
+            }
+            _ => {}
+        }
+    }
+    for i in rejected {
+        tokens[i].kind = Kind::Keyword;
+    }
 }
 
 /// The token at `i`, `None` for whitespace, and the index it ends at.
@@ -347,7 +428,7 @@ mod tests {
 
     #[test]
     fn identifiers() {
-        assert_eq!(kinds("_a1 if trueish nullable"), ["identifier"; 4]);
+        assert_eq!(kinds("_a1 trueish nullable"), ["identifier"; 3]);
         assert_eq!(
             lexed("a.`b-c.d`"),
             [
@@ -513,6 +594,73 @@ mod tests {
                 rest.chars().all(|c| "\t\n\r \u{c}".contains(c)),
                 "{source:?}: {rest:?}"
             );
+        }
+    }
+
+    /// Each reserved word is a keyword where cel's parser rejects it, and only
+    /// there.
+    #[test]
+    fn reserved_words_are_keywords_where_cel_rejects_them() {
+        let env = crate::ENV.with(std::sync::Arc::clone);
+        for source in [
+            "if",
+            "a + if",
+            "-if",
+            "f(if)",
+            "if(1)",
+            ".if",
+            "a + .if",
+            "f(.if)",
+            "a[if]",
+            "{if: 1}",
+            "{1: if}",
+            "[1].map(if, 1)",
+            "a.if",
+            "a.?if",
+            "a.if()",
+            "x.as(y)",
+            "a.if.while",
+            "a.?if.while",
+            "if.while",
+            "(a).if",
+            "[a][0].if",
+            "'s'.if",
+            "1.if",
+            "a. // c\n if",
+            "if{a: 1}",
+            ".if{a: 1}",
+            "a.if{a: 1}",
+            "Foo{if: 1}",
+            "Foo{?if: 1}",
+            "Foo{a: 1, if: 2}",
+            "Foo{\n// c\nif: 1}",
+            "Foo{a: {if: 1}}",
+            "Foo{a: [if]}",
+            "Foo{a: f(x, if)}",
+            "Foo{a: x ? if : 1}",
+        ] {
+            // Where cel rejects one, as an offset: the sources are ASCII
+            let lines: Vec<&str> = source.split('\n').collect();
+            let mut rejected: Vec<usize> = match env.compile(source) {
+                Ok(_) => Vec::new(),
+                // Not what follows from one, like a macro's variable missing
+                Err(errors) => errors
+                    .errors
+                    .iter()
+                    .filter(|e| e.msg.contains("reserved identifier"))
+                    .map(|e| {
+                        let (line, column) = (e.pos.0 as usize - 1, e.pos.1 as usize - 1);
+                        lines[..line].iter().map(|l| l.len() + 1).sum::<usize>() + column
+                    })
+                    .collect(),
+            };
+            rejected.dedup();
+            let keywords: Vec<usize> = tokens(source)
+                .into_iter()
+                .filter(|t| t.kind == Kind::Keyword)
+                .map(|t| t.start)
+                .collect();
+            assert_eq!(keywords, rejected, "{source:?}");
         }
     }
 }

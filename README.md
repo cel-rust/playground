@@ -63,7 +63,9 @@ nothing from npm.
 - `src/lib.rs`: `evaluate(expression, input)`, returning the outcome as JSON.
 - `src/tokens.rs`: the tokens to highlight, positioned in UTF-16 as JavaScript
   indexes strings. cel 0.15's lexer isn't public, so this mirrors its rules
-  (`CEL.g4`); a test checks it against the positions of what cel parses. The
+  (`CEL.g4`); a test checks it against the positions of what cel parses. A
+  word cel reserves is a keyword where its parser rejects it (`if`, but not
+  `a.if`), which another test checks against cel's errors. The
   page draws them in a `<pre>` behind the expression's transparent textarea.
 - `src/ast.rs`: the parsed tree for the explorer. cel positions each node at
   one token; a node whose token doesn't spell it (an identifier its name, an
