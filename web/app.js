@@ -2,8 +2,10 @@
 // fragment, and links to cel-rust's bug form with what it evaluated.
 
 import { evaluator } from "./cel.js";
+import { setUpSettings } from "./settings.js";
 
 const $ = (id) => document.getElementById(id);
+setUpSettings($("settings"), $("settings-toggle"));
 const expression = $("expression");
 const input = $("input");
 const output = $("output");

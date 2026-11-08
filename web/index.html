@@ -8,6 +8,13 @@
       name="description"
       content="Evaluate Common Expression Language (CEL) expressions against JSON, with cel-rust compiled to WebAssembly, in your browser."
     />
+    <script>
+      // The theme chosen in the settings (see settings.js), before the page draws
+      try {
+        const theme = JSON.parse(localStorage.getItem("cel-playground.settings"))?.theme;
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
     <link rel="stylesheet" href="style.css" />
     <script type="module" src="app.js"></script>
   </head>
@@ -21,7 +28,26 @@
         </select>
         <button id="copy-link" type="button">Copy link</button>
         <a id="report" href="https://github.com/cel-rust/cel-rust/issues/new?template=bug_report.yml" target="_blank" rel="noopener">Report a bug</a>
+        <button id="settings-toggle" class="icon" type="button" popovertarget="settings" aria-label="Settings" title="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <path
+              d="M 10.03 4.66 L 10.36 1.63 L 13.64 1.63 L 13.97 4.66 A 7.6 7.6 0 0 1 15.80 5.42 L 18.17 3.51 L 20.49 5.83 L 18.58 8.20 A 7.6 7.6 0 0 1 19.34 10.03 L 22.37 10.36 L 22.37 13.64 L 19.34 13.97 A 7.6 7.6 0 0 1 18.58 15.80 L 20.49 18.17 L 18.17 20.49 L 15.80 18.58 A 7.6 7.6 0 0 1 13.97 19.34 L 13.64 22.37 L 10.36 22.37 L 10.03 19.34 A 7.6 7.6 0 0 1 8.20 18.58 L 5.83 20.49 L 3.51 18.17 L 5.42 15.80 A 7.6 7.6 0 0 1 4.66 13.97 L 1.63 13.64 L 1.63 10.36 L 4.66 10.03 A 7.6 7.6 0 0 1 5.42 8.20 L 3.51 5.83 L 5.83 3.51 L 8.20 5.42 A 7.6 7.6 0 0 1 10.03 4.66 Z"
+            />
+            <circle cx="12" cy="12" r="3.2" />
+          </svg>
+        </button>
       </nav>
+      <div id="settings" class="settings" popover>
+        <fieldset>
+          <legend>Theme</legend>
+          <div class="choices">
+            <label><input type="radio" name="theme" value="system" />System</label>
+            <label><input type="radio" name="theme" value="light" />Light</label>
+            <label><input type="radio" name="theme" value="dark" />Dark</label>
+          </div>
+        </fieldset>
+        <p class="settings-note">The code is in tokyonight moon either way. Settings are kept in this browser.</p>
+      </div>
     </header>
 
     <main>

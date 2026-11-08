@@ -30,6 +30,8 @@ right away.
   `timestamp("...")`, `optional.none()`), so its type shows.
 - **Sharing:** the expression and input live in the URL fragment, as does
   whether the AST explorer is open, so a link reproduces them. "Report a bug" opens cel-rust's bug form with them filled in.
+- **Settings:** the gear opens them: for now, a light or dark page, or the
+  system's. They're kept in the browser, for the next visit, not in links.
 
 ## Running it locally
 
@@ -53,9 +55,10 @@ the scripts and the module from `file://` URLs.
 ```sh
 cargo test                                       # conversions, rendering, examples
 ./build.sh && node --test tests/smoke.test.mjs   # the wasm, through web/cel.js
+node --test tests/settings.test.mjs              # the settings, as kept
 ```
 
-The smoke test needs [Node.js](https://nodejs.org) (tested with 22), and
+The JavaScript tests need [Node.js](https://nodejs.org) (tested with 22), and
 nothing from npm.
 
 ## How it fits together
@@ -86,6 +89,9 @@ nothing from npm.
 - `web/cel.js`: the JavaScript side of that, shared by the page and the smoke
   test. A panic aborts the wasm instance; the message is reported and the
   next evaluation gets a fresh instance.
+- `web/settings.js`: the settings behind the gear, kept in localStorage.
+  `index.html` applies the theme from it before the page draws, so it doesn't
+  flash.
 - `web/examples.json`: the examples, also evaluated by both test suites.
 - `examples/localhost.rs`: the local server, std only; it serves the files
   directly in `web/` and the module, nothing else.
