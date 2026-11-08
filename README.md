@@ -18,6 +18,8 @@ right away.
   types. Parse errors are underlined where cel reports them. The input is
   highlighted too, its top-level keys as variables, with where its JSON breaks
   underlined; so is the output. Past 20,000 characters, text is left plain.
+  The colours are [tokyonight](https://github.com/folke/tokyonight.nvim)'s
+  moon, in light mode too.
 - **AST explorer:** the "AST" strip right of the editor opens the tree cel
   parses the expression into, macros expanded. What a macro or the parser made,
   rather than text of the expression, is faded. Pointing at a node highlights

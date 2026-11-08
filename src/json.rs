@@ -73,7 +73,8 @@ fn token(chars: &[char], i: usize) -> (Option<Kind>, usize) {
                 .unwrap_or(chars.len());
             (None, end)
         }
-        '{' | '}' | '[' | ']' | ':' | ',' => (Some(Kind::Punctuation), i + 1),
+        '{' | '}' | '[' | ']' => (Some(Kind::Bracket), i + 1),
+        ':' | ',' => (Some(Kind::Delimiter), i + 1),
         // Up to the closing quote; unterminated, up to the end of the line,
         // which a string can't span
         '"' => {
@@ -132,8 +133,8 @@ fn keys(input: &str, tokens: &[Token]) -> Vec<(Token, Class)> {
     let mut keys = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
         match (token.kind, text(token).as_str()) {
-            (Kind::Punctuation, "{" | "[") => open.push(text(token)),
-            (Kind::Punctuation, "}" | "]") => {
+            (Kind::Bracket, "{" | "[") => open.push(text(token)),
+            (Kind::Bracket, "}" | "]") => {
                 open.pop();
             }
             (Kind::String, _)
@@ -250,21 +251,21 @@ mod tests {
         assert_eq!(
             highlight(r#"{"a": [1, -2.5e+3, true, null, "s\"\\"]}"#).list("tokens"),
             [
-                "{:punctuation",
+                "{:bracket",
                 r#""a":string"#,
-                "::punctuation",
-                "[:punctuation",
+                "::delimiter",
+                "[:bracket",
                 "1:number",
-                ",:punctuation",
+                ",:delimiter",
                 "-2.5e+3:number",
-                ",:punctuation",
+                ",:delimiter",
                 "true:constant",
-                ",:punctuation",
+                ",:delimiter",
                 "null:constant",
-                ",:punctuation",
+                ",:delimiter",
                 r#""s\"\\":string"#,
-                "]:punctuation",
-                "}:punctuation",
+                "]:bracket",
+                "}:bracket",
             ]
         );
     }

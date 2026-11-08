@@ -10,13 +10,29 @@
   --error: #c4291f;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --tok-string: #0a6b2c;
-  --tok-number: #0550ae;
-  --tok-keyword: #8250df;
-  --tok-operator: #953800;
-  --tok-function: #0e6e78;
-  --tok-bound: #8a5a00;
-  --tok-field: #44608c;
+
+  /* Code, in light mode as in dark: tokyonight's moon palette, by its names
+     (folke/tokyonight.nvim, lua/tokyonight/colors/moon.lua), and the colour
+     its highlight groups give each kind of token. */
+  --code-bg: #222436; /* bg */
+  --code-fg: #c8d3f5; /* fg: @variable */
+  --code-dim: #828bb8; /* fg_dark: @punctuation.bracket */
+  --code-faint: #636da6; /* comment: Comment */
+  --code-gutter: #3b4261; /* fg_gutter */
+  --code-line: #2f334d; /* bg_highlight: CursorLine */
+  --code-visual: #2d3f76; /* bg_visual, blue0 blended at 40%: Visual */
+  --code-selection: rgb(62 104 215 / 40%); /* the same, over whatever's under it */
+  --code-error: #ff757f; /* red */
+  --code-error-line: #c53b53; /* red1, its error colour: DiagnosticUnderlineError */
+  --tok-string: #c3e88d; /* green: String */
+  --tok-constant: #ff966c; /* orange: Constant, which numbers and booleans link to */
+  --tok-operator: #89ddff; /* blue5: @operator, @punctuation.delimiter */
+  --tok-function: #82aaff; /* blue: Function */
+  --tok-preproc: #86e1fc; /* cyan: PreProc, which macros and modules link to */
+  --tok-parameter: #ffc777; /* yellow: @variable.parameter */
+  --tok-member: #4fd6be; /* green1: @variable.member */
+  --tok-type: #589ed7; /* blue1 blended at 80%: @type.builtin */
+  --tok-constructor: #c099ff; /* magenta: @constructor */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,13 +45,6 @@
     --accent: #f08a4b;
     --ok: #57c26f;
     --error: #ff7b72;
-    --tok-string: #7ee787;
-    --tok-number: #79c0ff;
-    --tok-keyword: #d2a8ff;
-    --tok-operator: #ffa657;
-    --tok-function: #39c5cf;
-    --tok-bound: #e3b341;
-    --tok-field: #a5bce0;
   }
 }
 
@@ -170,13 +179,17 @@ main {
 /* Only once there are tokens to show: without them, the textarea shows its text. */
 .editor.highlighting > textarea {
   color: transparent;
-  caret-color: var(--text);
+  caret-color: var(--code-fg);
 }
 
-/* Colours only: a bolder or slanted glyph could shift what follows. */
-.tok-comment,
-.tok-punctuation {
-  color: var(--muted);
+/* Colours only, unlike tokyonight's italic comments and keywords: a slanted
+   glyph could shift what follows. */
+.tok-comment {
+  color: var(--code-faint);
+}
+
+.tok-bracket {
+  color: var(--code-dim);
 }
 
 .tok-string,
@@ -186,70 +199,74 @@ main {
 
 .tok-number,
 .tok-constant {
-  color: var(--tok-number);
+  color: var(--tok-constant);
 }
 
-.tok-keyword {
-  color: var(--tok-keyword);
-}
-
-.tok-operator {
+/* `in`: @keyword.operator, an operator */
+.tok-keyword,
+.tok-operator,
+.tok-delimiter {
   color: var(--tok-operator);
 }
 
 .tok-invalid {
-  color: var(--error);
-  text-decoration: underline wavy var(--error);
+  color: var(--code-error);
+  text-decoration: underline wavy var(--code-error-line);
 }
 
 /* What the parsed tree, or the place of an identifier, says it is. In the
    input, a top-level key is a variable, a nested one a field. */
 .sem-variable {
-  color: var(--text);
+  color: var(--code-fg);
 }
 
 .sem-function {
   color: var(--tok-function);
 }
 
-.sem-macro {
-  color: var(--tok-keyword);
+.sem-macro,
+.sem-namespace {
+  color: var(--tok-preproc);
 }
 
+/* A macro's parameter */
 .sem-bound {
-  color: var(--tok-bound);
+  color: var(--tok-parameter);
 }
 
 .sem-field {
-  color: var(--tok-field);
+  color: var(--tok-member);
 }
 
 .sem-type {
-  color: var(--tok-number);
-}
-
-.sem-namespace {
-  color: var(--muted);
+  color: var(--tok-type);
 }
 
 /* Not in the input: evaluating fails on it. */
 .sem-missing {
-  color: var(--error);
-  text-decoration: underline dotted var(--error);
+  color: var(--code-error);
+  text-decoration: underline dotted var(--code-error);
 }
 
 .sem-error {
-  text-decoration: underline wavy var(--error);
+  text-decoration: underline wavy var(--code-error-line);
 }
 
 /* The node the AST explorer's pointer is on. */
 .hovered {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--code-visual);
   border-radius: 2px;
 }
 
 .ast-tree [data-start]:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--code-line);
+}
+
+textarea::selection,
+pre ::selection,
+pre::selection,
+.ast-tree ::selection {
+  background: var(--code-selection);
 }
 
 /* The AST explorer: a strip to open it, then the tree. */
@@ -283,7 +300,9 @@ main {
   overflow: auto;
   padding: 0.5rem 0.6rem;
   font: 13px/1.6 var(--mono);
-  background: var(--surface);
+  color: var(--code-fg);
+  background: var(--code-bg);
+  color-scheme: dark;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -307,7 +326,7 @@ main {
 .ast-leaf::before {
   display: inline-block;
   width: 1.1em;
-  color: var(--muted);
+  color: var(--code-faint);
   content: "";
 }
 
@@ -326,16 +345,16 @@ main {
 
 .ast-role,
 .ast-id {
-  color: var(--muted);
+  color: var(--code-faint);
 }
 
 .ast-kind {
-  color: var(--tok-keyword);
+  color: var(--tok-constructor);
 }
 
 .ast-text {
-  color: var(--muted);
-  border: 1px solid var(--border);
+  color: var(--code-dim);
+  border: 1px solid var(--code-gutter);
   border-radius: 4px;
   padding: 0 0.25em;
 }
@@ -347,7 +366,7 @@ main {
 
 .ast-note {
   margin: 0 0 0.4rem;
-  color: var(--muted);
+  color: var(--code-dim);
   font-family: var(--sans);
   white-space: normal;
 }
@@ -378,8 +397,9 @@ pre {
   margin: 0;
   padding: 0.6rem 0.75rem;
   font: 14px/1.5 var(--mono);
-  color: var(--text);
-  background: var(--surface);
+  color: var(--code-fg);
+  background: var(--code-bg);
+  color-scheme: dark;
   border: 1px solid var(--border);
   border-radius: 8px;
   tab-size: 2;
@@ -407,7 +427,7 @@ pre {
 
 .output[data-state="error"] pre {
   border-left: 4px solid var(--error);
-  color: var(--error);
+  color: var(--code-error);
 }
 
 .output[data-state="error"] #status {

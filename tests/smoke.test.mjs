@@ -59,12 +59,12 @@ test("highlights the input, in the string's own indices", async () => {
   const { tokens, marks, errors } = await cel.highlightInput(source);
   const text = ([start, end, name]) => [source.slice(start, end), name];
   assert.deepEqual(tokens.slice(0, 6).map(text), [
-    ["{", "punctuation"],
+    ["{", "bracket"],
     ['"👋"', "string"],
-    [":", "punctuation"],
-    ["[", "punctuation"],
+    [":", "delimiter"],
+    ["[", "bracket"],
     ["1", "number"],
-    [",", "punctuation"],
+    [",", "delimiter"],
   ]);
   assert.deepEqual(marks.map(text), [
     ['"👋"', "variable"],

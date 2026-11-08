@@ -20,7 +20,10 @@ pub enum Kind {
     Keyword,
     Identifier,
     Operator,
-    Punctuation,
+    /// `(`, `)`, `[`, `]`, `{` and `}`.
+    Bracket,
+    /// `.` and `,`.
+    Delimiter,
     /// A character no token starts with.
     Invalid,
 }
@@ -36,7 +39,8 @@ impl Kind {
             Kind::Keyword => "keyword",
             Kind::Identifier => "identifier",
             Kind::Operator => "operator",
-            Kind::Punctuation => "punctuation",
+            Kind::Bracket => "bracket",
+            Kind::Delimiter => "delimiter",
             Kind::Invalid => "invalid",
         }
     }
@@ -135,7 +139,8 @@ fn token(chars: &[char], i: usize) -> (Option<Kind>, usize) {
         '&' if at(i + 1) == Some('&') => two(Kind::Operator),
         '|' if at(i + 1) == Some('|') => two(Kind::Operator),
         '!' | '<' | '>' | '+' | '-' | '*' | '/' | '%' | '?' | ':' => one(Kind::Operator),
-        '(' | ')' | '[' | ']' | '{' | '}' | '.' | ',' => one(Kind::Punctuation),
+        '(' | ')' | '[' | ']' | '{' | '}' => one(Kind::Bracket),
+        '.' | ',' => one(Kind::Delimiter),
         _ => one(Kind::Invalid),
     }
 }
@@ -235,13 +240,13 @@ mod tests {
             [
                 ("x", "identifier"),
                 ("in", "keyword"),
-                ("[", "punctuation"),
+                ("[", "bracket"),
                 ("1", "number"),
-                (",", "punctuation"),
+                (",", "delimiter"),
                 ("'a'", "string"),
-                (",", "punctuation"),
+                (",", "delimiter"),
                 ("b'b'", "bytes"),
-                ("]", "punctuation"),
+                ("]", "bracket"),
                 ("&&", "operator"),
                 ("!", "operator"),
                 ("true", "constant"),
@@ -272,7 +277,7 @@ mod tests {
         );
         assert_eq!(
             kinds("a.?b"),
-            ["identifier", "punctuation", "operator", "identifier"]
+            ["identifier", "delimiter", "operator", "identifier"]
         );
         assert_eq!(kinds("a = b"), ["identifier", "invalid", "identifier"]);
         assert_eq!(
@@ -347,7 +352,7 @@ mod tests {
             lexed("a.`b-c.d`"),
             [
                 ("a".to_owned(), "identifier"),
-                (".".to_owned(), "punctuation"),
+                (".".to_owned(), "delimiter"),
                 ("`b-c.d`".to_owned(), "identifier"),
             ]
         );
