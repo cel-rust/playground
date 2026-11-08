@@ -757,6 +757,25 @@ h2 {
   font-weight: 600;
 }
 
+/* A pane's label, and what goes with it on the right */
+.pane-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+}
+
+.pane-heading label {
+  margin: 0;
+}
+
+/* Right-aligned, on the label's line or, if it doesn't fit, under it */
+.pane-heading > a {
+  margin-left: auto;
+}
+
 kbd {
   font: 0.75rem var(--mono);
   font-weight: normal;

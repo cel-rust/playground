@@ -29,7 +29,9 @@ right away. With auto run off in the settings, only that, or Run, evaluates.
 - **Output:** the result as a CEL literal (`1u`, `1.0`, `b"\x00"`,
   `timestamp("...")`, `optional.none()`), so its type shows.
 - **Sharing:** the expression and input live in the URL fragment, as does
-  whether the AST explorer is open, so a link reproduces them. "Report a bug" opens cel-rust's bug form with them filled in.
+  whether the AST explorer is open, so a link reproduces them. "Report a bug
+  with this CEL expression", over the editor, opens cel-rust's bug form with
+  them filled in, and what evaluating them came to.
 - **Settings:** the gear opens them. Switches for auto run and syntax
   highlighting, both on, and for Advanced, off: what only who knows CEL
   needs, for now the AST explorer. A light or dark page, or the system's,

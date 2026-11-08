@@ -30,7 +30,6 @@
           <option value="" selected disabled>Load an example…</option>
         </select>
         <button id="copy-link" type="button">Copy link</button>
-        <a id="report" href="https://github.com/cel-rust/cel-rust/issues/new?template=bug_report.yml" target="_blank" rel="noopener">Report a bug</a>
         <button id="settings-toggle" class="icon" type="button" popovertarget="settings" aria-label="Settings" title="Settings">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
             <path
@@ -102,7 +101,12 @@
 
     <main>
       <section class="pane expression">
-        <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
+        <div class="pane-heading">
+          <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
+          <a id="report" href="https://github.com/cel-rust/cel-rust/issues/new?template=bug_report.yml" target="_blank" rel="noopener"
+            >Report a bug with this CEL expression</a
+          >
+        </div>
         <div class="expression-row">
           <div class="editor">
             <pre aria-hidden="true"></pre>
