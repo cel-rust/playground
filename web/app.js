@@ -514,14 +514,31 @@ async function main() {
     }
   });
 
-  // A link first, then what was last written, then the first example
-  const state = await decodeState(location.hash);
-  const draft = state ? null : loadDraft();
-  if (state) {
+  const open = (state) => {
     origin = "link";
     expression.value = state.e;
     input.value = state.i;
     setAstOpen(state.a);
+  };
+  // A link opened in this tab, as pasted into its address bar: only the
+  // fragment changes, so the page isn't loaded again
+  addEventListener("hashchange", async () => {
+    // Before it's replaced, the last keystrokes of a draft
+    keepDraft();
+    const hash = location.hash;
+    const state = await decodeState(hash);
+    if (state === null || location.hash !== hash) return;
+    open(state);
+    rehighlight();
+    rehighlightInput();
+    flush();
+  });
+
+  // A link first, then what was last written, then the first example
+  const state = await decodeState(location.hash);
+  const draft = state ? null : loadDraft();
+  if (state) {
+    open(state);
   } else if (draft) {
     origin = "draft";
     expression.value = draft.e;
