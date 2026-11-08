@@ -30,6 +30,24 @@ test("passes text through as UTF-8", async () => {
   });
 });
 
+test("tokenizes, in the string's own indices", async () => {
+  assert.deepEqual(await cel.tokens("a + 1"), [
+    [0, 1, "identifier"],
+    [2, 3, "operator"],
+    [4, 5, "number"],
+  ]);
+  const source = "'👋' + x";
+  const tokens = await cel.tokens(source);
+  assert.deepEqual(
+    tokens.map(([start, end, kind]) => [source.slice(start, end), kind]),
+    [
+      ["'👋'", "string"],
+      ["+", "operator"],
+      ["x", "identifier"],
+    ],
+  );
+});
+
 test("reports errors by stage", async () => {
   assert.equal((await cel.evaluate("1 +", "{}")).stage, "parse");
   assert.equal((await cel.evaluate("1", "[]")).stage, "input");

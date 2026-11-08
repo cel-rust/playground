@@ -1,10 +1,12 @@
-// The page: evaluates as you type, keeps its state in the URL fragment, and
-// links to cel-rust's bug form with what it evaluated.
+// The page: highlights and evaluates as you type, keeps its state in the URL
+// fragment, and links to cel-rust's bug form with what it evaluated.
 
 import { evaluator } from "./cel.js";
 
 const $ = (id) => document.getElementById(id);
 const expression = $("expression");
+const highlight = $("highlight");
+const editor = expression.closest(".editor");
 const input = $("input");
 const output = $("output");
 const outputPane = output.closest(".pane");
@@ -112,6 +114,31 @@ function showCommit(commit) {
   }
 }
 
+// --- Highlighting: the expression's tokens, behind its transparent textarea ---
+
+function renderTokens(text, tokens) {
+  const fragment = document.createDocumentFragment();
+  let at = 0;
+  for (const [start, end, kind] of tokens) {
+    if (start > at) fragment.append(text.slice(at, start));
+    const span = document.createElement("span");
+    span.className = `tok-${kind}`;
+    span.textContent = text.slice(start, end);
+    fragment.append(span);
+    at = end;
+  }
+  // A <pre> doesn't show the empty line a final newline starts; a textarea
+  // puts the caret on it, so give that line something.
+  fragment.append(text.slice(at) + (text.endsWith("\n") ? " " : ""));
+  highlight.replaceChildren(fragment);
+  syncScroll();
+}
+
+function syncScroll() {
+  highlight.scrollTop = expression.scrollTop;
+  highlight.scrollLeft = expression.scrollLeft;
+}
+
 // --- Evaluation ---
 
 function show(state, text, label) {
@@ -164,6 +191,25 @@ async function main() {
     report.href = outcome ? issueUrl(cel, outcome) : `${ISSUES}?template=bug_report.yml`;
   }
 
+  // On every change, unlike evaluating: the typed text is transparent until
+  // its tokens are drawn.
+  let highlighting = 0;
+  async function rehighlight() {
+    const id = ++highlighting;
+    const text = expression.value;
+    const tokens = await cel.tokens(text);
+    if (id !== highlighting) return;
+    if (tokens) {
+      renderTokens(text, tokens);
+      editor.classList.add("highlighting");
+    } else {
+      // The instance trapped: show the textarea's own text until it's back
+      editor.classList.remove("highlighting");
+    }
+  }
+  expression.addEventListener("input", rehighlight);
+  expression.addEventListener("scroll", syncScroll);
+
   let timer;
   const schedule = () => {
     clearTimeout(timer);
@@ -200,6 +246,7 @@ async function main() {
   const load = (example) => {
     expression.value = example.expression;
     input.value = JSON.stringify(example.input, null, 2);
+    rehighlight();
   };
   examples.addEventListener("change", () => {
     const example = list[Number(examples.value)];
@@ -214,6 +261,7 @@ async function main() {
   if (state) {
     expression.value = state.e;
     input.value = state.i;
+    rehighlight();
   } else if (list.length > 0) {
     load(list[0]);
   }

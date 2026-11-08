@@ -63,6 +63,21 @@ pub unsafe extern "C" fn evaluate(
     output(crate::evaluate(&expression, &input))
 }
 
+/// The tokens of the expression JavaScript wrote into an [`alloc`]ed buffer,
+/// as `[[start, end, kind], ...]` in UTF-16 code units; returns the length of
+/// that JSON, at [`output_ptr`].
+///
+/// # Safety
+///
+/// `ptr` and `len` are a buffer from [`alloc`], initialized up to `len`.
+#[no_mangle]
+pub unsafe extern "C" fn tokens(ptr: *const u8, len: usize) -> usize {
+    install_panic_hook();
+    // SAFETY: per this function's contract.
+    let expression = unsafe { text(ptr, len) };
+    output(crate::tokens::to_json(&expression))
+}
+
 /// The version of `cel` this build runs; returns its length, at [`output_ptr`].
 #[no_mangle]
 pub extern "C" fn cel_version() -> usize {

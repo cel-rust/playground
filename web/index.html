@@ -27,7 +27,10 @@
     <main>
       <section class="pane expression">
         <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
-        <textarea id="expression" rows="5" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        <div class="editor">
+          <pre id="highlight" aria-hidden="true"></pre>
+          <textarea id="expression" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        </div>
       </section>
       <section class="pane input">
         <label for="input">JSON input <span class="muted">its top-level keys are the variables</span></label>

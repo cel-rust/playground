@@ -10,7 +10,7 @@ const decoder = new TextDecoder();
 
 /**
  * @param {WebAssembly.Module} module the compiled cel_playground.wasm
- * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>}>}
+ * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>, tokens(expression: string): Promise<Array<[number, number, string]> | null>}>}
  */
 export async function evaluator(module) {
   let instance = null;
@@ -79,6 +79,14 @@ export async function evaluator(module) {
     /** The playground commit the module was built from, or "unknown". */
     commit,
     evaluate: (expression, input) => outcome("evaluate", expression, input),
+    /**
+     * The tokens of `expression` but whitespace: `[start, end, kind]`, in the
+     * string's own (UTF-16) indices; `null` if the instance trapped.
+     */
+    async tokens(expression) {
+      const result = await call("tokens", expression);
+      return result.text === undefined ? null : JSON.parse(result.text);
+    },
     /** For tests: a panic, as the outcome of evaluating would report it. */
     panicForTests: () => outcome("panic_for_tests"),
   };
