@@ -99,6 +99,19 @@ function issueUrl(cel, outcome) {
   return url.href;
 }
 
+/** The commit the page was built from, after the source link. */
+function showCommit(commit) {
+  const span = $("commit");
+  if (/^[0-9a-f]{40}$/.test(commit)) {
+    const link = document.createElement("a");
+    link.href = `https://github.com/cel-rust/playground/commit/${commit}`;
+    link.textContent = commit.slice(0, 7);
+    span.append(" at ", link);
+  } else {
+    span.append(` (${commit})`);
+  }
+}
+
 // --- Evaluation ---
 
 function show(state, text, label) {
@@ -129,6 +142,7 @@ async function main() {
     return;
   }
   $("version").textContent = `cel-rust ${cel.version}`;
+  showCommit(cel.commit);
 
   let sequence = 0;
   async function run() {

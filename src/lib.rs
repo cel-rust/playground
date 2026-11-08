@@ -16,6 +16,9 @@ use serde_json::json;
 /// The version of `cel` this build runs, as resolved in `Cargo.lock`.
 pub const CEL_VERSION: &str = env!("CEL_VERSION");
 
+/// The playground commit this was built from, or `unknown`.
+pub const PLAYGROUND_COMMIT: &str = env!("PLAYGROUND_COMMIT");
+
 thread_local! {
     /// Built once: the standard library, with optionals, and every extension.
     static ENV: Arc<Env> = Arc::new(environment());

@@ -69,6 +69,13 @@ pub extern "C" fn cel_version() -> usize {
     output(crate::CEL_VERSION.to_owned())
 }
 
+/// The playground commit this was built from; returns its length, at
+/// [`output_ptr`].
+#[no_mangle]
+pub extern "C" fn playground_commit() -> usize {
+    output(crate::PLAYGROUND_COMMIT.to_owned())
+}
+
 /// Panics: `tests/smoke.test.mjs` checks against the module that ships that
 /// a panic's message reaches JavaScript, and that the next call works. The
 /// page never calls it.

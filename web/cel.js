@@ -10,7 +10,7 @@ const decoder = new TextDecoder();
 
 /**
  * @param {WebAssembly.Module} module the compiled cel_playground.wasm
- * @returns {Promise<{version: string, evaluate(expression: string, input: string): Promise<object>}>}
+ * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>}>}
  */
 export async function evaluator(module) {
   let instance = null;
@@ -64,6 +64,7 @@ export async function evaluator(module) {
   }
 
   const version = (await call("cel_version")).text ?? "unknown";
+  const commit = (await call("playground_commit")).text ?? "unknown";
 
   async function outcome(name, ...texts) {
     const result = await call(name, ...texts);
@@ -75,6 +76,8 @@ export async function evaluator(module) {
 
   return {
     version,
+    /** The playground commit the module was built from, or "unknown". */
+    commit,
     evaluate: (expression, input) => outcome("evaluate", expression, input),
     /** For tests: a panic, as the outcome of evaluating would report it. */
     panicForTests: () => outcome("panic_for_tests"),

@@ -15,6 +15,10 @@ test("reports the cel version", () => {
   assert.match(cel.version, /^\d+\.\d+\.\d+/);
 });
 
+test("reports the commit it was built from", () => {
+  assert.match(cel.commit, /^([0-9a-f]{40}|unknown)$/);
+});
+
 test("evaluates with the input's keys as variables", async () => {
   assert.deepEqual(await cel.evaluate("n + 1", '{"n": 1}'), { ok: true, value: "2" });
 });

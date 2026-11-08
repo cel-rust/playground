@@ -3,6 +3,8 @@
 Evaluate [CEL](https://cel.dev) expressions against JSON in the browser, with
 [cel-rust](https://github.com/cel-rust/cel-rust) compiled to WebAssembly.
 
+**Try it at <https://cel-rust.github.io/playground/>**
+
 Three panes: the expression, the JSON input, and the output, which shows the
 result or the error. It evaluates as you type; `Ctrl`/`Cmd`+`Enter` evaluates
 right away.
