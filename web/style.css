@@ -1,5 +1,8 @@
+/* The page's colours: light, or dark as the system prefers unless the
+   settings say light, or as they say dark (see settings.js). */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+  --scheme: light;
   --bg: #f6f7f9;
   --surface: #ffffff;
   --text: #1c2128;
@@ -10,10 +13,13 @@
   --error: #c4291f;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --scheme: dark;
     --bg: #14171c;
     --surface: #1c2027;
     --text: #e3e7ed;
@@ -23,6 +29,180 @@
     --ok: #57c26f;
     --error: #ff7b72;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --scheme: dark;
+  --bg: #14171c;
+  --surface: #1c2027;
+  --text: #e3e7ed;
+  --muted: #98a2b0;
+  --border: #343b46;
+  --accent: #f08a4b;
+  --ok: #57c26f;
+  --error: #ff7b72;
+}
+
+/* Code themes, as the settings choose one (see settings.js), for the page
+   or for one of the menu's samples: the colours of the code's panes and
+   tokens. A theme with a light and a dark variant follows the page's
+   (`--scheme`), by light-dark(). Each is mapped from the theme's own colours
+   for its syntax groups; where it colours operators as its keywords, they
+   take its plain text's colour instead, so keywords stand out. Colours only,
+   unlike some themes' italics: a slanted glyph could shift what follows
+   under the textarea. */
+
+/* GitHub Light and Dark, the default: Primer's syntax colours
+   (@primer/primitives 11.10.0, prettylights). */
+:root,
+[data-code-theme="github"] {
+  --code-scheme: var(--scheme);
+  --code-bg: light-dark(#ffffff, #0d1117); /* bgColor-default */
+  --code-fg: light-dark(#1f2328, #f0f6fc); /* fgColor-default */
+  --code-dim: light-dark(#59636e, #9198a1); /* fgColor-muted */
+  --code-faint: light-dark(#59636e, #9198a1);
+  --code-border: light-dark(#d1d9e0, #3d444d); /* borderColor-default */
+  --code-line: light-dark(#818b981f, #656c7633); /* bgColor-neutral-muted */
+  --code-visual: light-dark(#0969da33, #1f6feb66); /* selection-bgColor, the dark one fainter */
+  --code-selection: var(--code-visual);
+  --code-error: light-dark(#d1242f, #f85149); /* fgColor-danger */
+  --code-error-line: var(--code-error);
+  --tok-comment: light-dark(#59636e, #9198a1); /* comment */
+  --tok-string: light-dark(#0a3069, #a5d6ff); /* string */
+  --tok-constant: light-dark(#0550ae, #79c0ff); /* constant */
+  --tok-keyword: light-dark(#cf222e, #ff7b72); /* keyword */
+  --tok-operator: var(--code-fg); /* keyword, in GitHub's */
+  --tok-delimiter: var(--code-fg);
+  --tok-bracket: var(--code-fg);
+  --tok-function: light-dark(#6639ba, #d2a8ff); /* entity */
+  --tok-macro: var(--tok-function);
+  --tok-namespace: var(--code-fg);
+  --tok-bound: light-dark(#953800, #ffa657); /* variable, as parameters */
+  --tok-field: light-dark(#0550ae, #7ee787); /* entityTag, as JSON keys */
+  --tok-type: var(--tok-constant);
+  --code-node: var(--tok-function);
+}
+
+/* Catppuccin Latte and Mocha: its palette (catppuccin/palette), as its style
+   guide colours syntax. */
+[data-code-theme="catppuccin"] {
+  --code-scheme: var(--scheme);
+  --code-bg: light-dark(#eff1f5, #1e1e2e); /* base */
+  --code-fg: light-dark(#4c4f69, #cdd6f4); /* text */
+  --code-dim: light-dark(#7c7f93, #9399b2); /* overlay2 */
+  --code-faint: light-dark(#8c8fa1, #7f849c); /* overlay1 */
+  --code-border: light-dark(#bcc0cc, #45475a); /* surface1 */
+  --code-line: light-dark(#4c4f691a, #cdd6f41a); /* text at 10%: cursor line */
+  --code-visual: light-dark(#7c7f934d, #9399b24d); /* overlay2 at 30%: selection */
+  --code-selection: var(--code-visual);
+  --code-error: light-dark(#d20f39, #f38ba8); /* red: errors */
+  --code-error-line: var(--code-error);
+  --tok-comment: light-dark(#7c7f93, #9399b2); /* overlay2: comments */
+  --tok-string: light-dark(#40a02b, #a6e3a1); /* green: strings */
+  --tok-constant: light-dark(#fe640b, #fab387); /* peach: constants, numbers */
+  --tok-keyword: light-dark(#8839ef, #cba6f7); /* mauve: keywords */
+  --tok-operator: light-dark(#04a5e5, #89dceb); /* sky: operators */
+  --tok-delimiter: light-dark(#7c7f93, #9399b2); /* overlay2: braces, delimiters */
+  --tok-bracket: light-dark(#7c7f93, #9399b2);
+  --tok-function: light-dark(#1e66f5, #89b4fa); /* blue: functions */
+  --tok-macro: light-dark(#dc8a78, #f5e0dc); /* rosewater: macros */
+  --tok-namespace: light-dark(#df8e1d, #f9e2af); /* yellow: classes */
+  --tok-bound: light-dark(#e64553, #eba0ac); /* maroon: parameters */
+  --tok-field: light-dark(#1e66f5, #89b4fa); /* blue: properties */
+  --tok-type: light-dark(#df8e1d, #f9e2af); /* yellow: types */
+  --code-node: light-dark(#8839ef, #cba6f7); /* mauve */
+}
+
+/* Solarized light and dark: its palette and the colours of its vim scheme
+   (altercation/vim-colors-solarized), with the original green. */
+[data-code-theme="solarized"] {
+  --code-scheme: var(--scheme);
+  --code-bg: light-dark(#fdf6e3, #002b36); /* base3, base03 */
+  --code-fg: light-dark(#657b83, #839496); /* base00, base0: Normal */
+  --code-dim: light-dark(#93a1a1, #586e75); /* base1, base01 */
+  --code-faint: light-dark(#93a1a1, #586e75);
+  --code-border: light-dark(#eee8d5, #073642); /* base2, base02 */
+  --code-line: light-dark(#eee8d5, #073642); /* CursorLine */
+  --code-visual: light-dark(#93a1a166, #586e7580); /* base1, base01: Visual, see-through */
+  --code-selection: var(--code-visual);
+  --code-error: #dc322f; /* red: Error */
+  --code-error-line: #dc322f;
+  --tok-comment: light-dark(#93a1a1, #586e75); /* base1, base01: Comment */
+  --tok-string: #2aa198; /* cyan: Constant */
+  --tok-constant: #2aa198;
+  --tok-keyword: #859900; /* green: Statement */
+  --tok-operator: var(--code-fg); /* Statement, in Solarized */
+  --tok-delimiter: var(--code-fg);
+  --tok-bracket: var(--code-fg);
+  --tok-function: #268bd2; /* blue: Identifier */
+  --tok-macro: #cb4b16; /* orange: PreProc */
+  --tok-namespace: #cb4b16;
+  --tok-bound: #268bd2;
+  --tok-field: #268bd2;
+  --tok-type: #b58900; /* yellow: Type */
+  --code-node: #b58900;
+}
+
+/* Dracula, dark only: its palette and the token colours of its VS Code theme
+   (dracula/visual-studio-code). */
+[data-code-theme="dracula"] {
+  --code-scheme: dark;
+  --code-bg: #282a36; /* background */
+  --code-fg: #f8f8f2; /* foreground */
+  --code-dim: #6272a4; /* comment */
+  --code-faint: #6272a4;
+  --code-border: #44475a; /* selection */
+  --code-line: #44475a75; /* line highlight */
+  --code-visual: #44475a; /* selection */
+  --code-selection: #44475a80; /* the same, see-through */
+  --code-error: #ff5555; /* red */
+  --code-error-line: #ff5555;
+  --tok-comment: #6272a4; /* comment */
+  --tok-string: #f1fa8c; /* yellow: strings */
+  --tok-constant: #bd93f9; /* purple: constants */
+  --tok-keyword: #ff79c6; /* pink: keywords */
+  --tok-operator: var(--code-fg); /* pink, as keywords, in Dracula */
+  --tok-delimiter: var(--code-fg);
+  --tok-bracket: var(--code-fg);
+  --tok-function: #50fa7b; /* green: function names */
+  --tok-macro: #8be9fd; /* cyan: language built-ins */
+  --tok-namespace: var(--code-fg); /* as variables */
+  --tok-bound: #ffb86c; /* orange: parameters */
+  --tok-field: #8be9fd; /* cyan: property names */
+  --tok-type: #8be9fd; /* cyan: types */
+  --code-node: #bd93f9; /* purple */
+}
+
+/* Tokyo Night Moon, dark only: tokyonight.nvim's moon palette
+   (lua/tokyonight/colors/moon.lua), and the colours its highlight groups
+   give each kind of token. */
+[data-code-theme="tokyonight-moon"] {
+  --code-scheme: dark;
+  --code-bg: #222436; /* bg */
+  --code-fg: #c8d3f5; /* fg: @variable */
+  --code-dim: #828bb8; /* fg_dark */
+  --code-faint: #636da6; /* comment */
+  --code-border: #3b4261; /* fg_gutter */
+  --code-line: #2f334d; /* bg_highlight: CursorLine */
+  --code-visual: #2d3f76; /* bg_visual, blue0 blended at 40%: Visual */
+  --code-selection: rgb(62 104 215 / 40%); /* the same, see-through */
+  --code-error: #ff757f; /* red */
+  --code-error-line: #c53b53; /* red1, its error colour: DiagnosticUnderlineError */
+  --tok-comment: #636da6; /* comment: Comment */
+  --tok-string: #c3e88d; /* green: String */
+  --tok-constant: #ff966c; /* orange: Constant, which numbers and booleans link to */
+  --tok-keyword: #fca7ea; /* purple: @keyword */
+  --tok-operator: #89ddff; /* blue5: @operator */
+  --tok-delimiter: #89ddff; /* blue5: @punctuation.delimiter */
+  --tok-bracket: #828bb8; /* fg_dark: @punctuation.bracket */
+  --tok-function: #82aaff; /* blue: Function */
+  --tok-macro: #86e1fc; /* cyan: PreProc, which macros link to */
+  --tok-namespace: #86e1fc; /* cyan: PreProc, which modules link to */
+  --tok-bound: #ffc777; /* yellow: @variable.parameter */
+  --tok-field: #4fd6be; /* green1: @variable.member */
+  --tok-type: #589ed7; /* blue1 blended at 80%: @type.builtin */
+  --code-node: #c099ff; /* magenta: @constructor */
 }
 
 * {
@@ -90,6 +270,211 @@ select:hover {
   border-color: var(--muted);
 }
 
+/* The gear, and the settings menu it opens under it */
+button.icon {
+  display: inline-flex;
+  padding: 0.3rem;
+  color: var(--muted);
+}
+
+button.icon:hover,
+header:has(.settings:popover-open) button.icon {
+  color: var(--text);
+}
+
+button.icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.settings {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 19rem;
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  padding: 0.75rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
+}
+
+.settings fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings fieldset + fieldset {
+  margin-top: 0.75rem;
+}
+
+.settings legend {
+  margin-bottom: 0.4rem;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* On or off: a switch, right of what it switches */
+.switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.3rem 0;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.switch small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.switch input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.1rem;
+  height: 1.2rem;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.switch input::before {
+  content: "";
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+  transition: transform 0.15s;
+}
+
+.switch input:checked {
+  background: var(--accent);
+}
+
+.switch input:checked::before {
+  transform: translateX(0.9rem);
+}
+
+.switch input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* One of a few: a row of segments */
+.choices {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.choices label {
+  position: relative;
+  flex: 1;
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  font-weight: normal;
+  text-align: center;
+  cursor: pointer;
+}
+
+.choices label + label {
+  border-left: 1px solid var(--border);
+}
+
+/* A choice's radio is hidden, but still focused and checked */
+.settings input[type="radio"] {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.choices label:has(input:checked) {
+  color: var(--accent);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.choices label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* One of the code themes: its name, and a sample in its colours */
+.code-themes {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.code-themes label {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  font-weight: normal;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.code-themes label:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.code-themes label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.code-theme-name {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.code-theme-name small {
+  color: var(--muted);
+}
+
+.code-sample {
+  display: block;
+  padding: 0.25rem 0.45rem;
+  overflow: hidden;
+  font: 12px/1.5 var(--mono);
+  white-space: pre;
+  color: var(--code-fg);
+  background: var(--code-bg);
+  color-scheme: var(--code-scheme);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+}
+
+.settings-note {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 main {
   flex: 1;
   min-height: 0;
@@ -113,9 +498,256 @@ main {
   height: 35dvh;
 }
 
-.pane.expression textarea {
+/* The editor, and the AST explorer to its right. */
+.expression-row {
+  flex: 1;
   min-height: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* The expression: a transparent textarea over the highlighted text, laid out
+   alike so every character lands on its coloured twin. */
+.editor {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor > pre,
+.editor > textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  scrollbar-gutter: stable;
   resize: none;
+}
+
+.editor > pre {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.editor > textarea {
+  overflow: auto;
+  background: transparent;
+}
+
+/* Only once there are tokens to show: without them, the textarea shows its text. */
+.editor.highlighting > textarea {
+  color: transparent;
+  caret-color: var(--code-fg);
+}
+
+/* The colours of the code theme (above). */
+.tok-comment {
+  color: var(--tok-comment);
+}
+
+.tok-bracket {
+  color: var(--tok-bracket);
+}
+
+.tok-string,
+.tok-bytes {
+  color: var(--tok-string);
+}
+
+.tok-number,
+.tok-constant {
+  color: var(--tok-constant);
+}
+
+.tok-operator {
+  color: var(--tok-operator);
+}
+
+.tok-delimiter {
+  color: var(--tok-delimiter);
+}
+
+/* `in`, and a reserved word where cel rejects it */
+.tok-keyword {
+  color: var(--tok-keyword);
+}
+
+.tok-invalid {
+  color: var(--code-error);
+  text-decoration: underline wavy var(--code-error-line);
+}
+
+/* What the parsed tree, or the place of an identifier, says it is. In the
+   input, a top-level key is a variable, a nested one a field. */
+.sem-variable {
+  color: var(--code-fg);
+}
+
+.sem-function {
+  color: var(--tok-function);
+}
+
+.sem-macro {
+  color: var(--tok-macro);
+}
+
+.sem-namespace {
+  color: var(--tok-namespace);
+}
+
+/* A macro's parameter */
+.sem-bound {
+  color: var(--tok-bound);
+}
+
+.sem-field {
+  color: var(--tok-field);
+}
+
+.sem-type {
+  color: var(--tok-type);
+}
+
+/* Not in the input: evaluating fails on it. */
+.sem-missing {
+  color: var(--code-error);
+  text-decoration: underline dotted var(--code-error);
+}
+
+.sem-error {
+  text-decoration: underline wavy var(--code-error-line);
+}
+
+/* The node the AST explorer's pointer is on. */
+.hovered {
+  background: var(--code-visual);
+  border-radius: 2px;
+}
+
+.ast-tree [data-start]:hover {
+  background: var(--code-line);
+}
+
+textarea::selection,
+pre ::selection,
+pre::selection,
+.ast-tree ::selection {
+  background: var(--code-selection);
+}
+
+/* The AST explorer: a strip to open it, then the tree; in advanced mode only
+   (see settings.js). */
+:root:not([data-advanced="on"]) .ast {
+  display: none;
+}
+
+.ast {
+  display: flex;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ast[data-open="true"] {
+  flex: 0 0 40%;
+}
+
+#ast-toggle {
+  writing-mode: vertical-rl;
+  padding: 0.6rem 0.15rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ast[data-open="true"] #ast-toggle {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.ast-tree {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 0.5rem 0.6rem;
+  font: 13px/1.6 var(--mono);
+  color: var(--code-fg);
+  background: var(--code-bg);
+  color-scheme: var(--code-scheme);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ast-tree summary,
+.ast-leaf {
+  white-space: nowrap;
+  list-style: none;
+}
+
+.ast-tree summary {
+  cursor: pointer;
+}
+
+.ast-tree summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Rows line up whether they open or not. */
+.ast-tree summary::before,
+.ast-leaf::before {
+  display: inline-block;
+  width: 1.1em;
+  color: var(--code-faint);
+  content: "";
+}
+
+.ast-tree summary::before {
+  content: "▸";
+}
+
+.ast-tree details[open] > summary::before {
+  content: "▾";
+}
+
+.ast-tree details > details,
+.ast-tree details > .ast-leaf {
+  margin-left: 1.1em;
+}
+
+.ast-role,
+.ast-id {
+  color: var(--code-faint);
+}
+
+.ast-kind {
+  color: var(--code-node);
+}
+
+.ast-text {
+  color: var(--code-dim);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0 0.25em;
+}
+
+/* Made by a macro or the parser, not text of the expression. */
+.ast-made {
+  opacity: 0.5;
+}
+
+.ast-note {
+  margin: 0 0 0.4rem;
+  color: var(--code-dim);
+  font-family: var(--sans);
+  white-space: normal;
+}
+
+.ast-tree.stale .ast-root {
+  opacity: 0.45;
 }
 
 label,
@@ -123,6 +755,25 @@ h2 {
   margin: 0 0 0.35rem;
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+/* A pane's label, and what goes with it on the right */
+.pane-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+}
+
+.pane-heading label {
+  margin: 0;
+}
+
+/* Right-aligned, on the label's line or, if it doesn't fit, under it */
+.pane-heading > a {
+  margin-left: auto;
 }
 
 kbd {
@@ -140,8 +791,9 @@ pre {
   margin: 0;
   padding: 0.6rem 0.75rem;
   font: 14px/1.5 var(--mono);
-  color: var(--text);
-  background: var(--surface);
+  color: var(--code-fg);
+  background: var(--code-bg);
+  color-scheme: var(--code-scheme);
   border: 1px solid var(--border);
   border-radius: 8px;
   tab-size: 2;
@@ -163,13 +815,40 @@ pre {
   overflow-wrap: anywhere;
 }
 
+/* With auto run off: Run, and whether the output is of what's there now */
+.output h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+#run {
+  display: none;
+  margin-left: auto;
+  padding: 0 0.7rem;
+  font-size: 0.8rem;
+}
+
+#stale {
+  display: none;
+}
+
+:root[data-auto-run="off"] #run,
+:root[data-auto-run="off"] .output[data-stale="true"] #stale {
+  display: inline-block;
+}
+
+:root[data-auto-run="off"] .output[data-stale="true"] pre {
+  opacity: 0.6;
+}
+
 .output[data-state="ok"] pre {
   border-left: 4px solid var(--ok);
 }
 
 .output[data-state="error"] pre {
   border-left: 4px solid var(--error);
-  color: var(--error);
+  color: var(--code-error);
 }
 
 .output[data-state="error"] #status {
@@ -195,12 +874,41 @@ code {
     grid-template-rows: none;
   }
 
-  .pane.input textarea {
+  .pane.input .editor {
     min-height: 16rem;
   }
 
   .pane.output pre {
     min-height: 10rem;
+  }
+
+  /* The explorer goes under the editor, opened by a bar */
+  .expression-row,
+  .ast {
+    flex-direction: column;
+  }
+
+  #ast-toggle {
+    writing-mode: horizontal-tb;
+    padding: 0.2rem;
+  }
+
+  .ast[data-open="true"] {
+    flex: none;
+  }
+
+  .ast-tree {
+    max-height: 40vh;
+  }
+
+  .pane.expression:has(.ast[data-open="true"]) {
+    height: auto;
+  }
+
+  .pane.expression:has(.ast[data-open="true"]) .editor {
+    flex: none;
+    height: 35vh;
+    height: 35dvh;
   }
 
   nav {

@@ -63,6 +63,62 @@ pub unsafe extern "C" fn evaluate(
     output(crate::evaluate(&expression, &input))
 }
 
+/// What to highlight in the expression, given the input, both written by
+/// JavaScript into [`alloc`]ed buffers, as JSON (see `highlight::to_json`);
+/// returns the length of that JSON, at [`output_ptr`].
+///
+/// # Safety
+///
+/// Each pointer and length is a buffer from [`alloc`], initialized up to that
+/// length.
+#[no_mangle]
+pub unsafe extern "C" fn highlight(
+    expression_ptr: *const u8,
+    expression_len: usize,
+    input_ptr: *const u8,
+    input_len: usize,
+) -> usize {
+    install_panic_hook();
+    // SAFETY: per this function's contract.
+    let (expression, input) = unsafe {
+        (
+            text(expression_ptr, expression_len),
+            text(input_ptr, input_len),
+        )
+    };
+    output(crate::highlight::to_json(&expression, &input))
+}
+
+/// What to highlight in the JSON input JavaScript wrote into an [`alloc`]ed
+/// buffer, as JSON (see `json::to_json`); returns the length of that JSON, at
+/// [`output_ptr`].
+///
+/// # Safety
+///
+/// `ptr` and `len` are a buffer from [`alloc`], initialized up to `len`.
+#[no_mangle]
+pub unsafe extern "C" fn highlight_input(ptr: *const u8, len: usize) -> usize {
+    install_panic_hook();
+    // SAFETY: per this function's contract.
+    let input = unsafe { text(ptr, len) };
+    output(crate::json::to_json(&input))
+}
+
+/// The tree cel parses the expression JavaScript wrote into an [`alloc`]ed
+/// buffer into, as JSON (see `ast::to_json`); returns the length of that JSON,
+/// at [`output_ptr`].
+///
+/// # Safety
+///
+/// `ptr` and `len` are a buffer from [`alloc`], initialized up to `len`.
+#[no_mangle]
+pub unsafe extern "C" fn ast(ptr: *const u8, len: usize) -> usize {
+    install_panic_hook();
+    // SAFETY: per this function's contract.
+    let expression = unsafe { text(ptr, len) };
+    output(crate::ast::to_json(&expression))
+}
+
 /// The version of `cel` this build runs; returns its length, at [`output_ptr`].
 #[no_mangle]
 pub extern "C" fn cel_version() -> usize {

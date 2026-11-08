@@ -5,8 +5,12 @@
 //! exports, strings in and a JSON outcome out (see `web/cel.js`).
 
 mod abi;
+mod ast;
+mod highlight;
 mod input;
+mod json;
 mod literal;
+mod tokens;
 
 use std::sync::Arc;
 

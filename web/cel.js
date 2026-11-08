@@ -10,7 +10,7 @@ const decoder = new TextDecoder();
 
 /**
  * @param {WebAssembly.Module} module the compiled cel_playground.wasm
- * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>}>}
+ * @returns {Promise<{version: string, commit: string, evaluate(expression: string, input: string): Promise<object>, highlight(expression: string, input: string): Promise<object | null>, highlightInput(input: string): Promise<object | null>, ast(expression: string): Promise<object | null>}>}
  */
 export async function evaluator(module) {
   let instance = null;
@@ -79,6 +79,32 @@ export async function evaluator(module) {
     /** The playground commit the module was built from, or "unknown". */
     commit,
     evaluate: (expression, input) => outcome("evaluate", expression, input),
+    /**
+     * What to highlight in `expression`, given `input`: `{tokens, marks,
+     * errors}`, as `[start, end, kind]`, `[start, end, class]` and `[start,
+     * end]`, in the string's own (UTF-16) indices (see src/highlight.rs);
+     * `null` if the instance trapped.
+     */
+    async highlight(expression, input) {
+      const result = await call("highlight", expression, input);
+      return result.text === undefined ? null : JSON.parse(result.text);
+    },
+    /**
+     * What to highlight in the JSON `input`, in the same shape (see
+     * src/json.rs); `null` if the instance trapped.
+     */
+    async highlightInput(input) {
+      const result = await call("highlight_input", input);
+      return result.text === undefined ? null : JSON.parse(result.text);
+    },
+    /**
+     * The tree cel parses `expression` into: `{ok: true, root}` or
+     * `{ok: false, error}` (see src/ast.rs); `null` if the instance trapped.
+     */
+    async ast(expression) {
+      const result = await call("ast", expression);
+      return result.text === undefined ? null : JSON.parse(result.text);
+    },
     /** For tests: a panic, as the outcome of evaluating would report it. */
     panicForTests: () => outcome("panic_for_tests"),
   };

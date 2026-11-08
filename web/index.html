@@ -8,6 +8,16 @@
       name="description"
       content="Evaluate Common Expression Language (CEL) expressions against JSON, with cel-rust compiled to WebAssembly, in your browser."
     />
+    <script>
+      // The settings (see settings.js), before the page draws: each is a data-
+      // attribute the stylesheet styles by, which settings.js checks after
+      try {
+        const settings = JSON.parse(localStorage.getItem("cel-playground.settings"));
+        for (const name of ["theme", "codeTheme", "autoRun", "highlighting", "advanced"]) {
+          if (typeof settings?.[name] === "string") document.documentElement.dataset[name] = settings[name];
+        }
+      } catch {}
+    </script>
     <link rel="stylesheet" href="style.css" />
     <script type="module" src="app.js"></script>
   </head>
@@ -20,21 +30,109 @@
           <option value="" selected disabled>Load an example…</option>
         </select>
         <button id="copy-link" type="button">Copy link</button>
-        <a id="report" href="https://github.com/cel-rust/cel-rust/issues/new?template=bug_report.yml" target="_blank" rel="noopener">Report a bug</a>
+        <button id="settings-toggle" class="icon" type="button" popovertarget="settings" aria-label="Settings" title="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <path
+              d="M 10.03 4.66 L 10.36 1.63 L 13.64 1.63 L 13.97 4.66 A 7.6 7.6 0 0 1 15.80 5.42 L 18.17 3.51 L 20.49 5.83 L 18.58 8.20 A 7.6 7.6 0 0 1 19.34 10.03 L 22.37 10.36 L 22.37 13.64 L 19.34 13.97 A 7.6 7.6 0 0 1 18.58 15.80 L 20.49 18.17 L 18.17 20.49 L 15.80 18.58 A 7.6 7.6 0 0 1 13.97 19.34 L 13.64 22.37 L 10.36 22.37 L 10.03 19.34 A 7.6 7.6 0 0 1 8.20 18.58 L 5.83 20.49 L 3.51 18.17 L 5.42 15.80 A 7.6 7.6 0 0 1 4.66 13.97 L 1.63 13.64 L 1.63 10.36 L 4.66 10.03 A 7.6 7.6 0 0 1 5.42 8.20 L 3.51 5.83 L 5.83 3.51 L 8.20 5.42 A 7.6 7.6 0 0 1 10.03 4.66 Z"
+            />
+            <circle cx="12" cy="12" r="3.2" />
+          </svg>
+        </button>
       </nav>
+      <div id="settings" class="settings" popover>
+        <fieldset>
+          <legend>Editor</legend>
+          <label class="switch">
+            <span>Auto run <small>Off, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or Run evaluates</small></span>
+            <input type="checkbox" role="switch" name="autoRun" />
+          </label>
+          <label class="switch">
+            <span>Syntax highlighting <small>Of the expression, the input and the output</small></span>
+            <input type="checkbox" role="switch" name="highlighting" />
+          </label>
+          <label class="switch">
+            <span>Advanced <small>The AST explorer, beside the expression</small></span>
+            <input type="checkbox" role="switch" name="advanced" />
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Theme</legend>
+          <div class="choices">
+            <label><input type="radio" name="theme" value="system" />System</label>
+            <label><input type="radio" name="theme" value="light" />Light</label>
+            <label><input type="radio" name="theme" value="dark" />Dark</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Code theme</legend>
+          <div class="code-themes">
+            <label>
+              <input type="radio" name="codeTheme" value="github" />
+              <span class="code-theme-name">GitHub <small>light &amp; dark</small></span>
+              <span class="code-sample" data-code-theme="github"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="catppuccin" />
+              <span class="code-theme-name">Catppuccin <small>light &amp; dark</small></span>
+              <span class="code-sample" data-code-theme="catppuccin"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="solarized" />
+              <span class="code-theme-name">Solarized <small>light &amp; dark</small></span>
+              <span class="code-sample" data-code-theme="solarized"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="dracula" />
+              <span class="code-theme-name">Dracula <small>dark</small></span>
+              <span class="code-sample" data-code-theme="dracula"></span>
+            </label>
+            <label>
+              <input type="radio" name="codeTheme" value="tokyonight-moon" />
+              <span class="code-theme-name">Tokyo Night Moon <small>dark</small></span>
+              <span class="code-sample" data-code-theme="tokyonight-moon"></span>
+            </label>
+          </div>
+        </fieldset>
+        <p class="settings-note">A theme with light and dark follows the page's. Settings are kept in this browser.</p>
+        <!-- What each code theme's sample shows, as the editor would highlight it -->
+        <template id="code-sample"><span class="sem-macro">has</span><span class="tok-bracket">(</span><span class="sem-variable">a</span><span class="tok-delimiter">.</span><span class="sem-field">b</span><span class="tok-bracket">)</span> <span class="tok-operator">&amp;&amp;</span> <span class="sem-function">size</span><span class="tok-bracket">(</span><span class="sem-variable">x</span><span class="tok-bracket">)</span> <span class="tok-keyword">in</span> <span class="tok-bracket">[</span><span class="tok-constant">1</span><span class="tok-delimiter">,</span> <span class="tok-string">'c'</span><span class="tok-bracket">]</span></template>
+      </div>
     </header>
 
     <main>
       <section class="pane expression">
-        <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
-        <textarea id="expression" rows="5" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        <div class="pane-heading">
+          <label for="expression">CEL expression <span class="muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> evaluates now</span></label>
+          <a id="report" href="https://github.com/cel-rust/cel-rust/issues/new?template=bug_report.yml" target="_blank" rel="noopener"
+            >Report a bug with this CEL expression</a
+          >
+        </div>
+        <div class="expression-row">
+          <div class="editor">
+            <pre aria-hidden="true"></pre>
+            <textarea id="expression" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+          </div>
+          <aside id="ast" class="ast" data-open="false" aria-label="AST explorer">
+            <button id="ast-toggle" type="button" aria-expanded="false" aria-controls="ast-tree" title="The tree cel parses the expression into">
+              AST
+            </button>
+            <div id="ast-tree" class="ast-tree" hidden></div>
+          </aside>
+        </div>
       </section>
       <section class="pane input">
         <label for="input">JSON input <span class="muted">its top-level keys are the variables</span></label>
-        <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        <div class="editor">
+          <pre aria-hidden="true"></pre>
+          <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+        </div>
       </section>
       <section class="pane output" data-state="pending">
-        <h2>Output <span id="status" class="muted"></span></h2>
+        <h2>
+          Output <span id="status" class="muted"></span>
+          <span id="stale" class="muted">· edited since it ran</span>
+          <button id="run" type="button" title="Ctrl+Enter">Run</button>
+        </h2>
         <pre id="output" tabindex="0">Loading cel-rust…</pre>
       </section>
     </main>

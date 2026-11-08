@@ -1,9 +1,12 @@
-// The page: evaluates as you type, keeps its state in the URL fragment, and
-// links to cel-rust's bug form with what it evaluated.
+// The page: highlights and evaluates as you type, or when asked (see the
+// settings), keeps its state in the URL fragment, and links to cel-rust's bug
+// form with what it evaluated.
 
 import { evaluator } from "./cel.js";
+import { setUpSettings } from "./settings.js";
 
 const $ = (id) => document.getElementById(id);
+const settings = setUpSettings($("settings"), $("settings-toggle"));
 const expression = $("expression");
 const input = $("input");
 const output = $("output");
@@ -23,8 +26,13 @@ const STAGES = {
 const ISSUES = "https://github.com/cel-rust/cel-rust/issues/new";
 const MAX_URL = 8000;
 const DEBOUNCE_MS = 150;
+// Past this many characters, text isn't highlighted: a 20,000 character input
+// takes ~3 ms to highlight, on every keystroke, an output ~45 ms, mostly
+// parsing it back.
+const HIGHLIGHT_LIMIT = 20_000;
 
-// --- The URL fragment: `#s=` the deflated JSON of {e, i}, base64url ---
+// --- The URL fragment: `#s=` the deflated JSON of {e, i, a?}, base64url:
+// expression, input, and whether the AST explorer is open ---
 
 async function pipe(bytes, transform) {
   const stream = new Blob([bytes]).stream().pipeThrough(transform);
@@ -54,8 +62,8 @@ async function decodeState(hash) {
   if (!data) return null;
   try {
     const json = await pipe(fromBase64Url(data), new DecompressionStream("deflate-raw"));
-    const { e, i } = JSON.parse(new TextDecoder().decode(json));
-    return typeof e === "string" && typeof i === "string" ? { e, i } : null;
+    const { e, i, a } = JSON.parse(new TextDecoder().decode(json));
+    return typeof e === "string" && typeof i === "string" ? { e, i, a: a === true } : null;
   } catch (error) {
     console.warn("ignoring the state in the URL:", error);
     return null;
@@ -71,13 +79,13 @@ function rawString(text) {
   return `r${hashes}"${text}"${hashes}`;
 }
 
-function repro(link, withSources) {
+function repro(link, state, withSources) {
   const lines = [`// Evaluated in the playground: ${link}`];
   if (withSources) {
     lines.push(
-      `let expression = ${rawString(expression.value)};`,
+      `let expression = ${rawString(state.e)};`,
       "// The top-level keys of this JSON object are the variables.",
-      `let input = ${rawString(input.value)};`,
+      `let input = ${rawString(state.i)};`,
     );
   } else {
     lines.push("// The expression and input are too long for a link: they are in the one above.");
@@ -85,14 +93,15 @@ function repro(link, withSources) {
   return lines.join("\n");
 }
 
-function issueUrl(cel, outcome) {
+/** The bug form, filled in with `state`, its `link`, and what evaluating it came to. */
+function issueUrl(cel, outcome, state, link) {
   const url = new URL(ISSUES);
   url.searchParams.set("template", "bug_report.yml");
   url.searchParams.set("version", cel.version);
   const actual = outcome.ok ? outcome.value : `${STAGES[outcome.stage] ?? outcome.stage}: ${outcome.error}`;
   url.searchParams.set("actual", actual.slice(0, 2000));
   for (const withSources of [true, false]) {
-    url.searchParams.set("repro", repro(location.href, withSources));
+    url.searchParams.set("repro", repro(link, state, withSources));
     if (url.href.length <= MAX_URL) return url.href;
   }
   url.searchParams.set("repro", "// Paste the playground link here: it is too long to fill in.");
@@ -112,11 +121,187 @@ function showCommit(commit) {
   }
 }
 
+// --- Highlighting: tokens drawn in a <pre>, behind a transparent textarea ---
+
+/**
+ * `text` as spans, one per token, each with what's said of it (`sem-*`) and
+ * whether an error is reported there; `hovered` is a range to highlight.
+ */
+function spans(text, { tokens, marks, errors }, hovered = null) {
+  const classes = new Map(marks.map(([start, end, name]) => [`${start}:${end}`, `sem-${name}`]));
+  const failing = new Set(errors.map(([start, end]) => `${start}:${end}`));
+  const fragment = document.createDocumentFragment();
+  let at = 0;
+  for (const [start, end, kind] of tokens) {
+    if (start > at) fragment.append(text.slice(at, start));
+    const span = document.createElement("span");
+    const key = `${start}:${end}`;
+    span.className = [
+      `tok-${kind}`,
+      classes.get(key),
+      failing.has(key) && "sem-error",
+      hovered && hovered.start === start && hovered.end === end && "hovered",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    span.textContent = text.slice(start, end);
+    fragment.append(span);
+    at = end;
+  }
+  // A <pre> doesn't show the empty line a final newline starts; a textarea
+  // puts the caret on it, so give that line something.
+  fragment.append(text.slice(at) + (text.endsWith("\n") ? " " : ""));
+  // An error at the end, where something is missing: underline a space
+  if (errors.some(([start, end]) => start === end && start >= text.length)) {
+    const missing = document.createElement("span");
+    missing.className = "sem-error";
+    missing.textContent = " ";
+    fragment.append(missing);
+  }
+  return fragment;
+}
+
+/** The highlighting of `textarea`, drawn in the <pre> behind it. */
+function overlay(textarea) {
+  const editor = textarea.closest(".editor");
+  const pre = editor.querySelector("pre");
+  /** What's drawn: the text, and what to highlight in it. */
+  let drawn = null;
+  let hovered = null;
+  const syncScroll = () => {
+    pre.scrollTop = textarea.scrollTop;
+    pre.scrollLeft = textarea.scrollLeft;
+  };
+  const draw = () => {
+    pre.replaceChildren(spans(drawn.text, drawn.result, hovered));
+    syncScroll();
+  };
+  textarea.addEventListener("scroll", syncScroll);
+  return {
+    /** Draws what to highlight in `text`; `null` shows the textarea's own text. */
+    show(text, result) {
+      drawn = result && { text, result };
+      if (drawn) draw();
+      else pre.replaceChildren();
+      editor.classList.toggle("highlighting", drawn !== null);
+    },
+    /** Highlights `range`, as the AST explorer's pointer moves. */
+    hover(range) {
+      if (hovered?.start === range?.start && hovered?.end === range?.end) return;
+      hovered = range;
+      if (drawn?.text === textarea.value) draw();
+    },
+  };
+}
+
+const expressionView = overlay(expression);
+const inputView = overlay(input);
+
+// --- The AST explorer: the tree cel parses the expression into ---
+
+const astPane = $("ast");
+const astToggle = $("ast-toggle");
+const astTree = $("ast-tree");
+/** The subtrees folded by hand, by their path from the root. */
+const folded = new Set();
+
+function setAstOpen(open) {
+  astPane.dataset.open = String(open);
+  astToggle.setAttribute("aria-expanded", String(open));
+  astTree.hidden = !open;
+}
+
+const astOpen = () => astPane.dataset.open === "true";
+
+function astNote(text) {
+  const note = document.createElement("p");
+  note.className = "ast-note";
+  note.textContent = text;
+  return note;
+}
+
+/** One node and its children: `<details>` when it has some, a row if not. */
+function astNode(node, path) {
+  const row = [];
+  const part = (className, text) => {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = text;
+    row.push(span, " ");
+  };
+  if (node.role) part("ast-role", `${node.role}:`);
+  part("ast-kind", node.kind);
+  if (node.detail) part("ast-detail", node.detail);
+  if (node.text !== null && node.text !== node.detail) part("ast-text", node.text);
+  part("ast-id", `#${node.id}`);
+
+  let element;
+  let line;
+  if (node.children.length === 0) {
+    element = line = document.createElement("div");
+    element.className = "ast-leaf";
+    element.append(...row);
+  } else {
+    element = document.createElement("details");
+    element.open = !folded.has(path);
+    line = document.createElement("summary");
+    line.append(...row);
+    element.append(line, ...node.children.map((child, i) => astNode(child, `${path}/${i}`)));
+    element.addEventListener("toggle", () => {
+      if (element.open) folded.delete(path);
+      else folded.add(path);
+    });
+  }
+  if (node.start !== null) {
+    line.dataset.start = node.start;
+    line.dataset.end = node.end;
+  }
+  if (node.from) {
+    line.classList.add("ast-made");
+    line.title =
+      node.from === "parser"
+        ? "Made by the parser, not text of the expression"
+        : `Made by the ${node.from}() macro: positioned at its call`;
+  }
+  return element;
+}
+
+// Pointing at a node, or focusing it, highlights where cel positions it
+const rangeOf = (target) => {
+  const line = target instanceof Element ? target.closest("[data-start]") : null;
+  return line ? { start: Number(line.dataset.start), end: Number(line.dataset.end) } : null;
+};
+astTree.addEventListener("mouseover", (event) => expressionView.hover(rangeOf(event.target)));
+astTree.addEventListener("mouseleave", () => expressionView.hover(null));
+astTree.addEventListener("focusin", (event) => expressionView.hover(rangeOf(event.target)));
+astTree.addEventListener("focusout", () => expressionView.hover(null));
+
+function renderAst(text, result) {
+  if (text.trim() === "") {
+    astTree.classList.remove("stale");
+    astTree.replaceChildren(astNote("Type an expression to see its tree."));
+  } else if (result === null) {
+    astTree.replaceChildren(astNote("The WebAssembly instance trapped: no tree."));
+  } else if (!result.ok) {
+    // Keep the last tree that parsed, faded, rather than flicker while typing
+    const root = astTree.querySelector(".ast-root");
+    astTree.classList.add("stale");
+    astTree.replaceChildren(astNote("Doesn't parse: this is the last tree that did."), ...(root ? [root] : []));
+  } else {
+    const root = astNode(result.root, "0");
+    root.classList.add("ast-root");
+    astTree.classList.remove("stale");
+    astTree.replaceChildren(root);
+  }
+}
+
 // --- Evaluation ---
 
-function show(state, text, label) {
+/** Shows `text` in the output, highlighted if `result` says how. */
+function show(state, text, label, result = null) {
   outputPane.dataset.state = state;
-  output.textContent = text;
+  if (result) output.replaceChildren(spans(text, result));
+  else output.textContent = text;
   status.textContent = label ? `· ${label}` : "";
 }
 
@@ -144,35 +329,112 @@ async function main() {
   $("version").textContent = `cel-rust ${cel.version}`;
   showCommit(cel.commit);
 
-  let sequence = 0;
-  async function run() {
-    const id = ++sequence;
-    const state = { e: expression.value, i: input.value };
-    let outcome;
-    if (state.e.trim() === "") {
-      outcome = null;
-      show("pending", "Type an expression above.");
-    } else {
-      outcome = await cel.evaluate(state.e, state.i);
-      if (id !== sequence) return;
-      if (outcome.ok) show("ok", outcome.value);
-      else show("error", outcome.error, STAGES[outcome.stage] ?? outcome.stage);
+  // Only in advanced mode, while it's open, and not on every keystroke
+  const astShown = () => settings.get("advanced") === "on" && astOpen();
+  let astSequence = 0;
+  async function refreshAst() {
+    if (!astShown()) return;
+    const id = ++astSequence;
+    const text = expression.value;
+    const result = text.trim() === "" ? null : await cel.ast(text);
+    if (id !== astSequence) return;
+    renderAst(text, result);
+  }
+
+  /**
+   * Highlights `textarea` with `highlighter` on every change, unlike
+   * evaluating: the typed text is transparent until its tokens are drawn.
+   * Returns what redraws it.
+   */
+  function highlighting(textarea, view, highlighter) {
+    let sequence = 0;
+    async function refresh() {
+      const id = ++sequence;
+      const text = textarea.value;
+      // Off, too long to redraw on each keystroke, or the instance trapped:
+      // the textarea shows its own text
+      const off = settings.get("highlighting") === "off" || text.length > HIGHLIGHT_LIMIT;
+      const result = off ? null : await highlighter(text);
+      if (id === sequence) view.show(text, result);
     }
+    textarea.addEventListener("input", refresh);
+    return refresh;
+  }
+  const rehighlight = highlighting(expression, expressionView, (text) => cel.highlight(text, input.value));
+  const rehighlightInput = highlighting(input, inputView, (text) => cel.highlightInput(text));
+
+  /**
+   * The value, a CEL literal, highlighted as an expression: of no variables
+   * (`null` isn't an object, so none is missing), and not underlined where it
+   * doesn't parse back, as past cel's nesting limit.
+   */
+  async function highlightValue(value) {
+    if (settings.get("highlighting") === "off" || value.length > HIGHLIGHT_LIMIT) return null;
+    const result = await cel.highlight(value, "null");
+    return result && { ...result, errors: [] };
+  }
+
+  const current = () => ({ e: expression.value, i: input.value, ...(astOpen() && { a: true }) });
+
+  // The URL, in step with what's there, evaluated or not
+  let saving = 0;
+  async function save(state) {
+    const id = ++saving;
     const hash = `#s=${await encodeState(state)}`;
+    if (id === saving) history.replaceState(null, "", hash);
+    return hash;
+  }
+
+  /** What was last evaluated, and what it came to; null before anything is. */
+  let evaluated = null;
+  const isStale = () =>
+    evaluated !== null && (evaluated.state.e !== expression.value || evaluated.state.i !== input.value);
+
+  async function display({ outcome }) {
+    if (outcome === null) {
+      show("pending", "Type an expression above.");
+    } else if (outcome.ok) {
+      show("ok", outcome.value, null, await highlightValue(outcome.value));
+    } else {
+      show("error", outcome.error, STAGES[outcome.stage] ?? outcome.stage);
+    }
+  }
+
+  let sequence = 0;
+  async function evaluate() {
+    const id = ++sequence;
+    const state = current();
+    const outcome = state.e.trim() === "" ? null : await cel.evaluate(state.e, state.i);
     if (id !== sequence) return;
-    history.replaceState(null, "", hash);
-    report.href = outcome ? issueUrl(cel, outcome) : `${ISSUES}?template=bug_report.yml`;
+    evaluated = { state, outcome };
+    await display(evaluated);
+    outputPane.dataset.stale = String(isStale());
+    const hash = await save(state);
+    if (id !== sequence) return;
+    const link = new URL(hash, location.href).href;
+    report.href = outcome ? issueUrl(cel, outcome, state, link) : `${ISSUES}?template=bug_report.yml`;
+  }
+
+  /** What an edit leads to, and, with auto run on or when asked, evaluating. */
+  async function update(evaluating) {
+    clearTimeout(timer);
+    refreshAst();
+    // The input decides which variables are missing
+    rehighlight();
+    outputPane.dataset.stale = String(isStale());
+    await (evaluating ? evaluate() : save(current()));
   }
 
   let timer;
+  const autoRun = () => settings.get("autoRun") === "on";
   const schedule = () => {
     clearTimeout(timer);
-    timer = setTimeout(run, DEBOUNCE_MS);
+    timer = setTimeout(() => update(autoRun()), DEBOUNCE_MS);
   };
-  const runNow = () => {
-    clearTimeout(timer);
-    return run();
-  };
+  /** Whatever is scheduled, now. */
+  const flush = () => update(autoRun());
+  const runNow = () => update(true);
+
   expression.addEventListener("input", schedule);
   input.addEventListener("input", schedule);
   document.addEventListener("keydown", (event) => {
@@ -181,9 +443,16 @@ async function main() {
       runNow();
     }
   });
+  $("run").addEventListener("click", runNow);
+
+  astToggle.addEventListener("click", () => {
+    setAstOpen(!astOpen());
+    // Draws the tree, and keeps the URL in step
+    flush();
+  });
 
   copyLink.addEventListener("click", async () => {
-    await runNow();
+    await flush();
     try {
       await navigator.clipboard.writeText(location.href);
       copyLink.textContent = "Copied";
@@ -193,6 +462,16 @@ async function main() {
     }
   });
 
+  settings.on("autoRun", (value) => {
+    if (value === "on" && (evaluated === null || isStale())) runNow();
+  });
+  settings.on("highlighting", () => {
+    rehighlight();
+    rehighlightInput();
+    if (evaluated) display(evaluated);
+  });
+  settings.on("advanced", refreshAst);
+
   const list = await loadedExamples.catch(() => []);
   for (const [index, example] of list.entries()) {
     examples.add(new Option(example.name, String(index)));
@@ -200,13 +479,15 @@ async function main() {
   const load = (example) => {
     expression.value = example.expression;
     input.value = JSON.stringify(example.input, null, 2);
+    rehighlight();
+    rehighlightInput();
   };
   examples.addEventListener("change", () => {
     const example = list[Number(examples.value)];
     examples.selectedIndex = 0;
     if (example) {
       load(example);
-      runNow();
+      flush();
     }
   });
 
@@ -214,10 +495,14 @@ async function main() {
   if (state) {
     expression.value = state.e;
     input.value = state.i;
+    setAstOpen(state.a);
+    rehighlight();
+    rehighlightInput();
   } else if (list.length > 0) {
     load(list[0]);
   }
-  runNow();
+  if (!autoRun()) show("pending", "Ctrl+Enter, or Run, evaluates the expression.");
+  flush();
 }
 
 main();
