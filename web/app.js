@@ -1,11 +1,12 @@
-// The page: highlights and evaluates as you type, keeps its state in the URL
-// fragment, and links to cel-rust's bug form with what it evaluated.
+// The page: highlights and evaluates as you type, or when asked (see the
+// settings), keeps its state in the URL fragment, and links to cel-rust's bug
+// form with what it evaluated.
 
 import { evaluator } from "./cel.js";
 import { setUpSettings } from "./settings.js";
 
 const $ = (id) => document.getElementById(id);
-setUpSettings($("settings"), $("settings-toggle"));
+const settings = setUpSettings($("settings"), $("settings-toggle"));
 const expression = $("expression");
 const input = $("input");
 const output = $("output");
@@ -78,13 +79,13 @@ function rawString(text) {
   return `r${hashes}"${text}"${hashes}`;
 }
 
-function repro(link, withSources) {
+function repro(link, state, withSources) {
   const lines = [`// Evaluated in the playground: ${link}`];
   if (withSources) {
     lines.push(
-      `let expression = ${rawString(expression.value)};`,
+      `let expression = ${rawString(state.e)};`,
       "// The top-level keys of this JSON object are the variables.",
-      `let input = ${rawString(input.value)};`,
+      `let input = ${rawString(state.i)};`,
     );
   } else {
     lines.push("// The expression and input are too long for a link: they are in the one above.");
@@ -92,14 +93,15 @@ function repro(link, withSources) {
   return lines.join("\n");
 }
 
-function issueUrl(cel, outcome) {
+/** The bug form, filled in with `state`, its `link`, and what evaluating it came to. */
+function issueUrl(cel, outcome, state, link) {
   const url = new URL(ISSUES);
   url.searchParams.set("template", "bug_report.yml");
   url.searchParams.set("version", cel.version);
   const actual = outcome.ok ? outcome.value : `${STAGES[outcome.stage] ?? outcome.stage}: ${outcome.error}`;
   url.searchParams.set("actual", actual.slice(0, 2000));
   for (const withSources of [true, false]) {
-    url.searchParams.set("repro", repro(location.href, withSources));
+    url.searchParams.set("repro", repro(link, state, withSources));
     if (url.href.length <= MAX_URL) return url.href;
   }
   url.searchParams.set("repro", "// Paste the playground link here: it is too long to fill in.");
@@ -327,10 +329,11 @@ async function main() {
   $("version").textContent = `cel-rust ${cel.version}`;
   showCommit(cel.commit);
 
-  // Only while it's open: with the evaluation, not on every keystroke.
+  // Only in advanced mode, while it's open, and not on every keystroke
+  const astShown = () => settings.get("advanced") === "on" && astOpen();
   let astSequence = 0;
   async function refreshAst() {
-    if (!astOpen()) return;
+    if (!astShown()) return;
     const id = ++astSequence;
     const text = expression.value;
     const result = text.trim() === "" ? null : await cel.ast(text);
@@ -348,9 +351,10 @@ async function main() {
     async function refresh() {
       const id = ++sequence;
       const text = textarea.value;
-      // Too long to redraw on each keystroke, or the instance trapped: the
-      // textarea shows its own text
-      const result = text.length > HIGHLIGHT_LIMIT ? null : await highlighter(text);
+      // Off, too long to redraw on each keystroke, or the instance trapped:
+      // the textarea shows its own text
+      const off = settings.get("highlighting") === "off" || text.length > HIGHLIGHT_LIMIT;
+      const result = off ? null : await highlighter(text);
       if (id === sequence) view.show(text, result);
     }
     textarea.addEventListener("input", refresh);
@@ -365,44 +369,72 @@ async function main() {
    * doesn't parse back, as past cel's nesting limit.
    */
   async function highlightValue(value) {
-    if (value.length > HIGHLIGHT_LIMIT) return null;
+    if (settings.get("highlighting") === "off" || value.length > HIGHLIGHT_LIMIT) return null;
     const result = await cel.highlight(value, "null");
     return result && { ...result, errors: [] };
   }
 
+  const current = () => ({ e: expression.value, i: input.value, ...(astOpen() && { a: true }) });
+
+  // The URL, in step with what's there, evaluated or not
+  let saving = 0;
+  async function save(state) {
+    const id = ++saving;
+    const hash = `#s=${await encodeState(state)}`;
+    if (id === saving) history.replaceState(null, "", hash);
+    return hash;
+  }
+
+  /** What was last evaluated, and what it came to; null before anything is. */
+  let evaluated = null;
+  const isStale = () =>
+    evaluated !== null && (evaluated.state.e !== expression.value || evaluated.state.i !== input.value);
+
+  async function display({ outcome }) {
+    if (outcome === null) {
+      show("pending", "Type an expression above.");
+    } else if (outcome.ok) {
+      show("ok", outcome.value, null, await highlightValue(outcome.value));
+    } else {
+      show("error", outcome.error, STAGES[outcome.stage] ?? outcome.stage);
+    }
+  }
+
   let sequence = 0;
-  async function run() {
+  async function evaluate() {
     const id = ++sequence;
-    const state = { e: expression.value, i: input.value, ...(astOpen() && { a: true }) };
+    const state = current();
+    const outcome = state.e.trim() === "" ? null : await cel.evaluate(state.e, state.i);
+    if (id !== sequence) return;
+    evaluated = { state, outcome };
+    await display(evaluated);
+    outputPane.dataset.stale = String(isStale());
+    const hash = await save(state);
+    if (id !== sequence) return;
+    const link = new URL(hash, location.href).href;
+    report.href = outcome ? issueUrl(cel, outcome, state, link) : `${ISSUES}?template=bug_report.yml`;
+  }
+
+  /** What an edit leads to, and, with auto run on or when asked, evaluating. */
+  async function update(evaluating) {
+    clearTimeout(timer);
     refreshAst();
     // The input decides which variables are missing
     rehighlight();
-    let outcome;
-    if (state.e.trim() === "") {
-      outcome = null;
-      show("pending", "Type an expression above.");
-    } else {
-      outcome = await cel.evaluate(state.e, state.i);
-      const highlighted = outcome.ok ? await highlightValue(outcome.value) : null;
-      if (id !== sequence) return;
-      if (outcome.ok) show("ok", outcome.value, null, highlighted);
-      else show("error", outcome.error, STAGES[outcome.stage] ?? outcome.stage);
-    }
-    const hash = `#s=${await encodeState(state)}`;
-    if (id !== sequence) return;
-    history.replaceState(null, "", hash);
-    report.href = outcome ? issueUrl(cel, outcome) : `${ISSUES}?template=bug_report.yml`;
+    outputPane.dataset.stale = String(isStale());
+    await (evaluating ? evaluate() : save(current()));
   }
 
   let timer;
+  const autoRun = () => settings.get("autoRun") === "on";
   const schedule = () => {
     clearTimeout(timer);
-    timer = setTimeout(run, DEBOUNCE_MS);
+    timer = setTimeout(() => update(autoRun()), DEBOUNCE_MS);
   };
-  const runNow = () => {
-    clearTimeout(timer);
-    return run();
-  };
+  /** Whatever is scheduled, now. */
+  const flush = () => update(autoRun());
+  const runNow = () => update(true);
+
   expression.addEventListener("input", schedule);
   input.addEventListener("input", schedule);
   document.addEventListener("keydown", (event) => {
@@ -411,15 +443,16 @@ async function main() {
       runNow();
     }
   });
+  $("run").addEventListener("click", runNow);
 
   astToggle.addEventListener("click", () => {
     setAstOpen(!astOpen());
     // Draws the tree, and keeps the URL in step
-    runNow();
+    flush();
   });
 
   copyLink.addEventListener("click", async () => {
-    await runNow();
+    await flush();
     try {
       await navigator.clipboard.writeText(location.href);
       copyLink.textContent = "Copied";
@@ -428,6 +461,16 @@ async function main() {
       prompt("Copy this link:", location.href);
     }
   });
+
+  settings.on("autoRun", (value) => {
+    if (value === "on" && (evaluated === null || isStale())) runNow();
+  });
+  settings.on("highlighting", () => {
+    rehighlight();
+    rehighlightInput();
+    if (evaluated) display(evaluated);
+  });
+  settings.on("advanced", refreshAst);
 
   const list = await loadedExamples.catch(() => []);
   for (const [index, example] of list.entries()) {
@@ -444,7 +487,7 @@ async function main() {
     examples.selectedIndex = 0;
     if (example) {
       load(example);
-      runNow();
+      flush();
     }
   });
 
@@ -458,7 +501,8 @@ async function main() {
   } else if (list.length > 0) {
     load(list[0]);
   }
-  runNow();
+  if (!autoRun()) show("pending", "Ctrl+Enter, or Run, evaluates the expression.");
+  flush();
 }
 
 main();

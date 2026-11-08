@@ -13,7 +13,7 @@
       // attribute the stylesheet styles by, which settings.js checks after
       try {
         const settings = JSON.parse(localStorage.getItem("cel-playground.settings"));
-        for (const name of ["theme", "codeTheme"]) {
+        for (const name of ["theme", "codeTheme", "autoRun", "highlighting", "advanced"]) {
           if (typeof settings?.[name] === "string") document.documentElement.dataset[name] = settings[name];
         }
       } catch {}
@@ -41,6 +41,21 @@
         </button>
       </nav>
       <div id="settings" class="settings" popover>
+        <fieldset>
+          <legend>Editor</legend>
+          <label class="switch">
+            <span>Auto run <small>Off, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or Run evaluates</small></span>
+            <input type="checkbox" role="switch" name="autoRun" />
+          </label>
+          <label class="switch">
+            <span>Syntax highlighting <small>Of the expression, the input and the output</small></span>
+            <input type="checkbox" role="switch" name="highlighting" />
+          </label>
+          <label class="switch">
+            <span>Advanced <small>The AST explorer, beside the expression</small></span>
+            <input type="checkbox" role="switch" name="advanced" />
+          </label>
+        </fieldset>
         <fieldset>
           <legend>Theme</legend>
           <div class="choices">
@@ -109,7 +124,11 @@
         </div>
       </section>
       <section class="pane output" data-state="pending">
-        <h2>Output <span id="status" class="muted"></span></h2>
+        <h2>
+          Output <span id="status" class="muted"></span>
+          <span id="stale" class="muted">· edited since it ran</span>
+          <button id="run" type="button" title="Ctrl+Enter">Run</button>
+        </h2>
         <pre id="output" tabindex="0">Loading cel-rust…</pre>
       </section>
     </main>

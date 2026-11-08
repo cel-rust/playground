@@ -7,7 +7,7 @@ Evaluate [CEL](https://cel.dev) expressions against JSON in the browser, with
 
 Three panes: the expression, the JSON input, and the output, which shows the
 result or the error. It evaluates as you type; `Ctrl`/`Cmd`+`Enter` evaluates
-right away.
+right away. With auto run off in the settings, only that, or Run, evaluates.
 
 - **Environment:** `Env::stdlib()`, with optional values, plus the strings,
   lists, math and encoders extensions.
@@ -19,17 +19,20 @@ right away.
   highlighted too, its top-level keys as variables, with where its JSON breaks
   underlined; so is the output. Past 20,000 characters, text is left plain.
   The colours are a code theme's, chosen in the settings.
-- **AST explorer:** the "AST" strip right of the editor opens the tree cel
-  parses the expression into, macros expanded. What a macro or the parser made,
-  rather than text of the expression, is faded. Pointing at a node highlights
-  the token cel positions it at.
+- **AST explorer**, with Advanced on in the settings: the "AST" strip right
+  of the editor opens the tree cel
+  parses the expression into, macros expanded. What a macro or the parser
+  made, rather than text of the expression, is faded. Pointing at a node
+  highlights the token cel positions it at.
 - **Input:** a JSON object, whose top-level keys are the variables. Integral
   numbers are `int`s (`uint`s past `i64::MAX`), other numbers `double`s.
 - **Output:** the result as a CEL literal (`1u`, `1.0`, `b"\x00"`,
   `timestamp("...")`, `optional.none()`), so its type shows.
 - **Sharing:** the expression and input live in the URL fragment, as does
   whether the AST explorer is open, so a link reproduces them. "Report a bug" opens cel-rust's bug form with them filled in.
-- **Settings:** the gear opens them: a light or dark page, or the system's,
+- **Settings:** the gear opens them. Switches for auto run and syntax
+  highlighting, both on, and for Advanced, off: what only who knows CEL
+  needs, for now the AST explorer. A light or dark page, or the system's,
   and the code theme: GitHub (the default), Catppuccin or Solarized, which
   follow the page's light or dark, or Dracula or
   [Tokyo Night](https://github.com/folke/tokyonight.nvim) Moon, dark either
