@@ -4,7 +4,8 @@
 //! An identifier the tree has a node for, at its own token, is a variable (in
 //! the input, or missing from it), a name a macro binds, a namespace or a type.
 //! Others are told by where they are: a function or macro before a `(`, a
-//! field after a `.`. While the expression doesn't parse, only the latter.
+//! field after a `.`. While the expression doesn't parse, or where cel doesn't
+//! say where its nodes are (0.14), only the latter.
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -15,6 +16,7 @@ use cel::{Context, Env, ExecutionError, ParseErrors};
 use serde_json::{json, Value as Json};
 
 use crate::ast::Source;
+use crate::engine;
 use crate::tokens::{self, Kind, Token};
 
 /// What the tree, or the place of a token, says an identifier is.
@@ -57,7 +59,7 @@ impl Class {
 pub fn to_json(expression: &str, input: &str) -> String {
     let env = crate::ENV.with(Arc::clone);
     let tokens = tokens::tokens(expression);
-    let (classes, errors) = match env.compile(expression) {
+    let (classes, errors) = match engine::compile(&env, expression) {
         Ok(program) => {
             let source = Source::new(expression, program.source_info());
             let mut walk = Walk {
@@ -69,7 +71,7 @@ pub fn to_json(expression: &str, input: &str) -> String {
             };
             walk.node(program.expression());
             let mut classes = walk.classes;
-            by_place(&source.units, &tokens, true, &mut classes);
+            by_place(&source.units, &tokens, source.positioned(), &mut classes);
             (classes, Vec::new())
         }
         Err(errors) => {
@@ -144,7 +146,7 @@ impl Walk<'_> {
             Class::Bound
         } else if self.keys.as_ref().is_some_and(|keys| keys.contains(name)) {
             Class::Variable
-        } else if self.env.types().find_type(name).is_some() {
+        } else if engine::is_type(self.env, name) {
             Class::Type
         } else if self.keys.is_some() {
             Class::Missing
@@ -252,9 +254,10 @@ impl Walk<'_> {
 
 /// What the tree didn't say, told by where an identifier is: a function before
 /// a `(`, a field after a `.` (or `.?`) or before the `:` of a struct literal,
-/// a type before a `{`, and, in what parsed, a namespace before a `.`: the tree
-/// has no node for it. While typing, that `.` is more likely a variable's.
-fn by_place(units: &[u16], tokens: &[Token], parsed: bool, classes: &mut HashMap<usize, Class>) {
+/// a type before a `{`, and, where the tree was `walked`, a namespace before a
+/// `.`: the tree has no node for it. While typing, or without positions, that
+/// `.` is more likely a variable's.
+fn by_place(units: &[u16], tokens: &[Token], walked: bool, classes: &mut HashMap<usize, Class>) {
     let text = |i: usize| {
         tokens
             .get(i)
@@ -273,7 +276,7 @@ fn by_place(units: &[u16], tokens: &[Token], parsed: bool, classes: &mut HashMap
             _ if selected => Class::Field,
             Some("{") => Class::Type,
             Some(":") => Class::Field,
-            Some(".") if parsed => Class::Namespace,
+            Some(".") if walked => Class::Namespace,
             _ => continue,
         };
         classes.insert(i, class);
@@ -293,7 +296,7 @@ fn is_namespace(env: &Arc<Env>, name: &str, function: &str) -> bool {
     if let Some(known) = NAMESPACES.with(|cache| cache.borrow().get(&key).copied()) {
         return known;
     }
-    let namespace = match env.compile(&format!("{name}.{function}()")) {
+    let namespace = match engine::compile(env, &format!("{name}.{function}()")) {
         Ok(program) => !matches!(
             program.execute(&Context::with_env(Arc::clone(env))),
             Err(ExecutionError::UndeclaredReference(read)) if read.as_str() == name
@@ -385,6 +388,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn variables_fields_functions_and_macros() {
         let h = highlight(
             "request.method in ['GET'] && has(request.headers.auth) \
@@ -413,6 +417,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn namespaces_and_types() {
         assert_eq!(
             highlight(
@@ -443,6 +448,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn what_macros_bind_is_in_their_scope_only() {
         assert_eq!(
             highlight("[x].map(x, x) + [x]", r#"{"x": 1}"#).marks(),
@@ -471,6 +477,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn without_an_object_as_input_nothing_is_missing() {
         assert_eq!(
             highlight("a + b", "[1]").marks(),
@@ -479,6 +486,19 @@ mod tests {
         assert_eq!(
             highlight("a + b", "{").marks(),
             ["a:variable", "b:variable"]
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "cel-0-14")]
+    fn without_positions_only_places_tell() {
+        assert_eq!(
+            highlight(
+                "request.method in ['GET'] && size(x) > 0 && base64.encode(b)",
+                r#"{"request": {}}"#
+            )
+            .marks(),
+            ["method:field", "size:function", "encode:function"]
         );
     }
 

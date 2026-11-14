@@ -297,7 +297,12 @@ function renderAst(text, result) {
     const root = astNode(result.root, "0");
     root.classList.add("ast-root");
     astTree.classList.remove("stale");
-    astTree.replaceChildren(root);
+    // As cel-rust 0.14's: no node is at text of the expression
+    const unpositioned = result.positioned === false;
+    astTree.replaceChildren(
+      ...(unpositioned ? [astNote("This version of cel-rust doesn't say where nodes are in the expression.")] : []),
+      root,
+    );
   }
 }
 

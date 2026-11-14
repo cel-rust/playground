@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 [dependencies]
 # Each version of cel the playground offers: `cel-0-N`, of the 0.N line, which
 # the feature of the same name builds with (see src/lib.rs and versions.sh)
+cel-0-14 = { package = "cel", version = "0.14.5", optional = true }
 cel-0-15 = { package = "cel", version = "0.15.0", optional = true }
 cel-0-16 = { package = "cel", version = "0.16.0", optional = true }
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
@@ -21,6 +22,7 @@ serde_json = "1"
 # Exactly one version of cel per build; the newest by default
 [features]
 default = ["cel-0-16"]
+cel-0-14 = ["dep:cel-0-14"]
 cel-0-15 = ["dep:cel-0-15"]
 cel-0-16 = ["dep:cel-0-16"]
 

@@ -5,19 +5,23 @@
 //! exports, strings in and a JSON outcome out (see `web/cel.js`).
 //!
 //! Each build runs one version of cel, the one its `cel-0-N` feature picks
-//! (see `Cargo.toml`): it is the `cel` crate to the rest of the code.
+//! (see `Cargo.toml`): it is the `cel` crate to the rest of the code, and
+//! [`engine`] is where versions differ.
 
 // With two enabled, `cel` is defined twice: an error too
+#[cfg(feature = "cel-0-14")]
+extern crate cel_0_14 as cel;
 #[cfg(feature = "cel-0-15")]
 extern crate cel_0_15 as cel;
 #[cfg(feature = "cel-0-16")]
 extern crate cel_0_16 as cel;
 
-#[cfg(not(any(feature = "cel-0-15", feature = "cel-0-16")))]
+#[cfg(not(any(feature = "cel-0-14", feature = "cel-0-15", feature = "cel-0-16")))]
 compile_error!("enable one `cel-0-N` feature: the version of cel to build with");
 
 mod abi;
 mod ast;
+mod engine;
 mod highlight;
 mod input;
 mod json;
@@ -26,7 +30,7 @@ mod tokens;
 
 use std::sync::Arc;
 
-use cel::{extensions, Context, Env, Value};
+use cel::{Context, Env, Value};
 use serde_json::json;
 
 /// The version of `cel` this build runs, as resolved in `Cargo.lock`.
@@ -36,22 +40,8 @@ pub const CEL_VERSION: &str = env!("CEL_VERSION");
 pub const PLAYGROUND_COMMIT: &str = env!("PLAYGROUND_COMMIT");
 
 thread_local! {
-    /// Built once: the standard library, with optionals, and every extension.
-    static ENV: Arc<Env> = Arc::new(environment());
-}
-
-fn environment() -> Env {
-    let mut env = Env::stdlib();
-    for extension in [
-        extensions::strings,
-        extensions::lists,
-        extensions::math,
-        extensions::encoders,
-    ] {
-        env.add_extension(extension)
-            .expect("the extensions declare distinct overloads");
-    }
-    env
+    /// Built once: see [`engine::environment`].
+    static ENV: Arc<Env> = Arc::new(engine::environment());
 }
 
 /// Evaluates `expression` with the top-level keys of the JSON object `input`
@@ -68,9 +58,8 @@ pub fn evaluate(expression: &str, input: &str) -> String {
 
 fn run(expression: &str, input: &str) -> Result<Value, (&'static str, String)> {
     let env = ENV.with(Arc::clone);
-    let program = env
-        .compile(expression)
-        .map_err(|error| ("parse", error.to_string()))?;
+    let program =
+        engine::compile(&env, expression).map_err(|error| ("parse", error.to_string()))?;
     let variables = input::variables(input).map_err(|error| ("input", error))?;
     let mut context = Context::with_env(env);
     for (name, value) in variables {
@@ -123,21 +112,63 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 has no extensions")]
     fn enables_the_extensions() {
         assert_eq!(value("'TacoCat'.lowerAscii()", ""), r#""tacocat""#);
         assert_eq!(value("[3, 1, 2].sort()", ""), "[1, 2, 3]");
         assert_eq!(value("math.greatest(1, 5, 3)", ""), "5");
         assert_eq!(value("base64.encode(b'hi')", ""), r#""aGk=""#);
-        assert_eq!(value("optional.of(1).orValue(2)", ""), "1");
     }
+
+    #[test]
+    #[cfg(feature = "cel-0-14")]
+    fn has_no_extensions() {
+        for expression in [
+            "'TacoCat'.lowerAscii()",
+            "[3, 1, 2].sort()",
+            "base64.encode(b'hi')",
+        ] {
+            let (stage, error) = failure(expression, "");
+            assert_eq!(stage, "evaluation", "{expression}");
+            assert!(
+                error.contains("Undeclared reference"),
+                "{expression}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn enables_optionals() {
+        assert_eq!(value("optional.of(1).orValue(2)", ""), "1");
+        assert_eq!(value("{'a': 1}.?a.orValue(0)", ""), "1");
+    }
+
+    /// The examples the page offers that this version can't run: they need
+    /// what came after it. The page lists them anyway.
+    const EXAMPLES_BEYOND: &[&str] = if cfg!(feature = "cel-0-14") {
+        &[
+            "Strings extension",
+            "Lists extension",
+            "Math extension",
+            "Base64 encoders",
+            "Timestamps and durations",
+        ]
+    } else {
+        &[]
+    };
 
     #[test]
     fn examples_evaluate() {
         let examples: Json = serde_json::from_str(include_str!("../web/examples.json")).unwrap();
         for example in examples.as_array().unwrap() {
+            let name = example["name"].as_str().unwrap();
             let expression = example["expression"].as_str().unwrap();
             let input = serde_json::to_string_pretty(&example["input"]).unwrap();
-            value(expression, &input);
+            if EXAMPLES_BEYOND.contains(&name) {
+                assert_eq!(failure(expression, &input).0, "evaluation", "{name}");
+            } else {
+                value(expression, &input);
+            }
         }
     }
 }

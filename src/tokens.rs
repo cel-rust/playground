@@ -445,6 +445,7 @@ mod tests {
     /// cel's own lexer isn't public, but the identifiers and literals of what
     /// it parses are positioned on its tokens: each must be one of ours.
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn matches_cels_lexer_on_identifiers_and_literals() {
         use cel::common::ast::{EntryExpr, Expr, IdedExpr};
 
@@ -503,7 +504,7 @@ mod tests {
 
         let env = crate::ENV.with(std::sync::Arc::clone);
         for source in &sources {
-            let program = env.compile(source).unwrap();
+            let program = crate::engine::compile(&env, source).unwrap();
             let ours: Vec<_> = tokens(source)
                 .into_iter()
                 .map(|t| (t.start, t.end, t.kind))
@@ -513,7 +514,8 @@ mod tests {
             let mut checked = 0;
             for node in all {
                 // cel's positions: UTF-8 byte offsets, the last one included
-                let (start, stop) = program.source_info().offset_for(node.id).unwrap();
+                let info = program.source_info().expect("cel positions the nodes");
+                let (start, stop) = info.offset_for(node.id).unwrap();
                 let (start, stop) = (start as usize, stop as usize);
                 let end = stop + source[stop..].chars().next().unwrap().len_utf8();
                 let text = &source[start..end];
@@ -641,7 +643,7 @@ mod tests {
         ] {
             // Where cel rejects one, as an offset: the sources are ASCII
             let lines: Vec<&str> = source.split('\n').collect();
-            let mut rejected: Vec<usize> = match env.compile(source) {
+            let mut rejected: Vec<usize> = match crate::engine::compile(&env, source) {
                 Ok(_) => Vec::new(),
                 // Not what follows from one, like a macro's variable missing
                 Err(errors) => errors

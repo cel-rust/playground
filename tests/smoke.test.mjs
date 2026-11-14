@@ -28,12 +28,22 @@ test("lists each version once, newest first", () => {
   }
 });
 
+/**
+ * The examples the page offers that a version can't run, by its line: they
+ * need what came after it (see `EXAMPLES_BEYOND` in src/lib.rs).
+ */
+const EXAMPLES_BEYOND = {
+  "0.14": ["Strings extension", "Lists extension", "Math extension", "Base64 encoders", "Timestamps and durations"],
+};
+
 for (const version of versions) {
   const cel = await evaluator(await WebAssembly.compile(await readFile(new URL(moduleFile(version), dist))));
-  describe(`cel-rust ${version}`, () => suite(cel, version));
+  // cel 0.14 doesn't say where the nodes of what it parses are
+  const { positioned } = await cel.ast("x");
+  describe(`cel-rust ${version}`, () => suite(cel, version, positioned));
 }
 
-function suite(cel, version) {
+function suite(cel, version, positioned) {
   test("reports the version it's listed as", () => {
     assert.equal(cel.version, version);
   });
@@ -60,7 +70,8 @@ function suite(cel, version) {
         [2, 3, "operator"],
         [4, 5, "number"],
       ],
-      marks: [[0, 1, "variable"]],
+      // Without positions, only what places tell: nothing here
+      marks: positioned ? [[0, 1, "variable"]] : [],
       errors: [],
     });
     const source = "'👋' + x";
@@ -73,7 +84,12 @@ function suite(cel, version) {
         ["x", "identifier"],
       ],
     );
-    assert.deepEqual(marks, [[7, 8, "missing"]]);
+    assert.deepEqual(marks, positioned ? [[7, 8, "missing"]] : []);
+    assert.deepEqual((await cel.highlight("f(a.b)", "")).marks, [
+      [0, 1, "function"],
+      ...(positioned ? [[2, 3, "missing"]] : []),
+      [4, 5, "field"],
+    ]);
     assert.deepEqual((await cel.highlight("x +", "")).errors, [[3, 3]]);
   });
 
@@ -102,10 +118,16 @@ function suite(cel, version) {
   test("parses into a tree, positioned in the string's own indices", async () => {
     const result = await cel.ast("'👋' + x");
     assert.equal(result.ok, true);
+    assert.equal(result.positioned, positioned);
     const { root } = result;
-    assert.deepEqual([root.kind, root.detail, root.text, root.from], ["Call", "_+_", "+", null]);
     const x = root.children[1];
-    assert.deepEqual([x.kind, x.detail, x.start, x.end], ["Ident", "x", 7, 8]);
+    if (positioned) {
+      assert.deepEqual([root.kind, root.detail, root.text, root.from], ["Call", "_+_", "+", null]);
+      assert.deepEqual([x.kind, x.detail, x.start, x.end], ["Ident", "x", 7, 8]);
+    } else {
+      assert.deepEqual([root.kind, root.detail, root.text, root.from], ["Call", "_+_", null, null]);
+      assert.deepEqual([x.kind, x.detail, x.start, x.end], ["Ident", "x", null, null]);
+    }
     assert.equal((await cel.ast("1 +")).ok, false);
   });
 
@@ -115,11 +137,16 @@ function suite(cel, version) {
     assert.equal((await cel.evaluate("missing", "{}")).stage, "evaluation");
   });
 
-  test("every example evaluates", async () => {
+  test("every example evaluates, but those that need a later version", async () => {
     const examples = JSON.parse(await readFile(new URL("../web/examples.json", import.meta.url)));
+    const beyond = EXAMPLES_BEYOND[version.split(".").slice(0, 2).join(".")] ?? [];
     for (const { name, expression, input } of examples) {
       const outcome = await cel.evaluate(expression, JSON.stringify(input, null, 2));
-      assert.equal(outcome.ok, true, `${name}: ${JSON.stringify(outcome)}`);
+      if (beyond.includes(name)) {
+        assert.equal(outcome.stage, "evaluation", `${name}: ${JSON.stringify(outcome)}`);
+      } else {
+        assert.equal(outcome.ok, true, `${name}: ${JSON.stringify(outcome)}`);
+      }
     }
   });
 

@@ -121,7 +121,10 @@ fn write_flat(out: &mut String, value: &Value) {
             },
             None => write!(out, "{value:?}").unwrap(),
         },
-        Value::Function(..) | Value::Struct(_) => write!(out, "{value:?}").unwrap(),
+        Value::Function(..) => write!(out, "{value:?}").unwrap(),
+        // In cel 0.14, only with its `structs` feature
+        #[cfg(not(feature = "cel-0-14"))]
+        Value::Struct(_) => write!(out, "{value:?}").unwrap(),
     }
 }
 
