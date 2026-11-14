@@ -1,14 +1,16 @@
 // The page: highlights and evaluates as you type, or when asked (see the
-// settings), keeps its state in the URL fragment and what you last wrote in
-// the browser (see draft.js), and links to cel-rust's bug form with what it
-// evaluated.
+// settings), with the version of cel-rust chosen (see versions.js), keeps its
+// state in the URL fragment and what you last wrote in the browser (see
+// draft.js), and links to cel-rust's bug form with what it evaluated.
 
 import { evaluator } from "./cel.js";
 import { loadDraft, saveDraft } from "./draft.js";
 import { setUpSettings } from "./settings.js";
+import { moduleFile, pick } from "./versions.js";
 
 const $ = (id) => document.getElementById(id);
 const settings = setUpSettings($("settings"), $("settings-toggle"));
+const versionSelect = $("version");
 const expression = $("expression");
 const input = $("input");
 const output = $("output");
@@ -33,8 +35,9 @@ const DEBOUNCE_MS = 150;
 // parsing it back.
 const HIGHLIGHT_LIMIT = 20_000;
 
-// --- The URL fragment: `#s=` the deflated JSON of {e, i, a?}, base64url:
-// expression, input, and whether the AST explorer is open ---
+// --- The URL fragment: `#s=` the deflated JSON of {e, i, a?, v?}, base64url:
+// expression, input, whether the AST explorer is open, and the version of
+// cel-rust, which links made before there was a choice don't have ---
 
 async function pipe(bytes, transform) {
   const stream = new Blob([bytes]).stream().pipeThrough(transform);
@@ -64,8 +67,9 @@ async function decodeState(hash) {
   if (!data) return null;
   try {
     const json = await pipe(fromBase64Url(data), new DecompressionStream("deflate-raw"));
-    const { e, i, a } = JSON.parse(new TextDecoder().decode(json));
-    return typeof e === "string" && typeof i === "string" ? { e, i, a: a === true } : null;
+    const { e, i, a, v } = JSON.parse(new TextDecoder().decode(json));
+    if (typeof e !== "string" || typeof i !== "string") return null;
+    return { e, i, a: a === true, v: typeof v === "string" ? v : null };
   } catch (error) {
     console.warn("ignoring the state in the URL:", error);
     return null;
@@ -307,8 +311,8 @@ function show(state, text, label, result = null) {
   status.textContent = label ? `· ${label}` : "";
 }
 
-async function compile() {
-  const url = new URL("cel_playground.wasm", import.meta.url);
+async function compile(file) {
+  const url = new URL(file, import.meta.url);
   try {
     return await WebAssembly.compileStreaming(fetch(url));
   } catch {
@@ -319,16 +323,45 @@ async function compile() {
   }
 }
 
+/** The versions of cel-rust on offer, newest first. */
+async function loadVersions() {
+  const url = new URL("versions.json", import.meta.url);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
+  const versions = await response.json();
+  if (!Array.isArray(versions) || versions.length === 0) throw new Error(`${url}: no versions`);
+  return versions;
+}
+
+/** Each version's evaluator, its module fetched and compiled once. */
+const evaluators = new Map();
+function evaluatorFor(version) {
+  let loading = evaluators.get(version);
+  if (!loading) {
+    loading = compile(moduleFile(version)).then(evaluator);
+    // Asked for again, it's fetched again
+    loading.catch(() => evaluators.delete(version));
+    evaluators.set(version, loading);
+  }
+  return loading;
+}
+
 async function main() {
   const loadedExamples = fetch(new URL("examples.json", import.meta.url)).then((r) => r.json());
-  let cel;
+  /** What's on offer; the version that runs what's there, and its evaluator. */
+  let versions, version, cel;
   try {
-    cel = await evaluator(await compile());
+    versions = await loadVersions();
+    // A link's own, so as not to load the newest first
+    version = pick(versions, (await decodeState(location.hash))?.v);
+    cel = await evaluatorFor(version);
   } catch (error) {
     show("error", String(error), "could not load cel-rust");
     return;
   }
-  $("version").textContent = `cel-rust ${cel.version}`;
+  versionSelect.replaceChildren(...versions.map((each) => new Option(each)));
+  versionSelect.value = version;
+  versionSelect.disabled = false;
   showCommit(cel.commit);
 
   // Only in advanced mode, while it's open, and not on every keystroke
@@ -376,7 +409,7 @@ async function main() {
     return result && { ...result, errors: [] };
   }
 
-  const current = () => ({ e: expression.value, i: input.value, ...(astOpen() && { a: true }) });
+  const current = () => ({ e: expression.value, i: input.value, ...(astOpen() && { a: true }), v: version });
 
   /**
    * Where what's in the editors comes from: an `example` as loaded, a `link`
@@ -400,7 +433,8 @@ async function main() {
   /** What was last evaluated, and what it came to; null before anything is. */
   let evaluated = null;
   const isStale = () =>
-    evaluated !== null && (evaluated.state.e !== expression.value || evaluated.state.i !== input.value);
+    evaluated !== null &&
+    (evaluated.state.e !== expression.value || evaluated.state.i !== input.value || evaluated.state.v !== version);
 
   async function display({ outcome }) {
     if (outcome === null) {
@@ -416,7 +450,9 @@ async function main() {
   async function evaluate() {
     const id = ++sequence;
     const state = current();
-    const outcome = state.e.trim() === "" ? null : await cel.evaluate(state.e, state.i);
+    // The version of `state`, should another be chosen meanwhile
+    const evaluating = cel;
+    const outcome = state.e.trim() === "" ? null : await evaluating.evaluate(state.e, state.i);
     if (id !== sequence) return;
     evaluated = { state, outcome };
     await display(evaluated);
@@ -424,7 +460,7 @@ async function main() {
     const hash = await save(state);
     if (id !== sequence) return;
     const link = new URL(hash, location.href).href;
-    report.href = outcome ? issueUrl(cel, outcome, state, link) : `${ISSUES}?template=bug_report.yml`;
+    report.href = outcome ? issueUrl(evaluating, outcome, state, link) : `${ISSUES}?template=bug_report.yml`;
   }
 
   /** What an edit leads to, and, with auto run on or when asked, evaluating. */
@@ -514,11 +550,44 @@ async function main() {
     }
   });
 
+  /**
+   * Runs what's there with `wanted`, or the version that stands in for it
+   * (see versions.js), once its module loads: as an edit would, highlighted
+   * again, and evaluated with auto run on. The last version asked for wins.
+   */
+  let switching = 0;
+  async function use(wanted) {
+    const id = ++switching;
+    const next = pick(versions, wanted);
+    versionSelect.value = next;
+    versionSelect.setAttribute("aria-busy", String(next !== version));
+    if (next === version) return;
+    let loaded;
+    try {
+      loaded = await evaluatorFor(next);
+    } catch (error) {
+      if (id !== switching) return;
+      versionSelect.value = version;
+      show("error", String(error), `could not load cel-rust ${next}`);
+      return;
+    } finally {
+      if (id === switching) versionSelect.setAttribute("aria-busy", "false");
+    }
+    if (id !== switching) return;
+    version = next;
+    cel = loaded;
+    rehighlightInput();
+    await flush();
+  }
+  versionSelect.addEventListener("change", () => use(versionSelect.value));
+
+  // A link made before there was a choice of version keeps the one chosen
   const open = (state) => {
     origin = "link";
     expression.value = state.e;
     input.value = state.i;
     setAstOpen(state.a);
+    if (state.v !== null) use(state.v);
   };
   // A link opened in this tab, as pasted into its address bar: only the
   // fragment changes, so the page isn't loaded again

@@ -270,6 +270,17 @@ select:hover {
   border-color: var(--muted);
 }
 
+/* The version of cel-rust, beside the title; faded while its module loads */
+.version select {
+  color: var(--text);
+  padding: 0.1rem 0.3rem;
+}
+
+.version select[aria-busy="true"] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 /* The gear, and the settings menu it opens under it */
 button.icon {
   display: inline-flex;

@@ -1,7 +1,7 @@
 //! The tokens of an expression, for highlighting it as it's typed, parsable
 //! or not.
 //!
-//! It mirrors the lexer rules of the grammar cel 0.15 parses with
+//! It mirrors the lexer rules of the grammar cel 0.15 and 0.16 parse with
 //! (`src/parser/gen/CEL.g4`), whose lexer isn't public: longest match first,
 //! so `.5` is a number but `1.` is a number then a dot, and `0X1` is `0` then
 //! the identifier `X1`. Where that lexer would fail, on an unterminated string
@@ -463,7 +463,7 @@ mod tests {
                 "1.5e3 + .5 + 2e-1",
                 "[r'\\', '''a\n'b'\n''', \"é\", R\"\"\"x\"\"\"]",
                 "{'k': true, 'n': null} // done",
-                // cel 0.15 lexes `escaped` identifiers but doesn't parse them
+                // cel 0.15 and 0.16 lex `escaped` identifiers but don't parse them
                 "a.b.c && !false",
                 "-1 + -2.5",
             ]

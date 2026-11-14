@@ -24,7 +24,12 @@
   <body>
     <header>
       <h1>CEL playground</h1>
-      <span id="version" class="muted">cel-rust</span>
+      <label class="version muted" title="The version of cel-rust that evaluates">
+        cel-rust
+        <select id="version" disabled>
+          <option>…</option>
+        </select>
+      </label>
       <nav>
         <select id="examples" aria-label="Load an example">
           <option value="" selected disabled>Load an example…</option>

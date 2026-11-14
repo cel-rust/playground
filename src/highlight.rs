@@ -430,7 +430,7 @@ mod tests {
                 "int:type",
             ]
         );
-        // A macro in cel 0.15: no node for `math`
+        // A macro in cel 0.15 and 0.16: no node for `math`
         assert_eq!(
             highlight("math.greatest([1])", "").marks(),
             ["math:namespace", "greatest:macro"]

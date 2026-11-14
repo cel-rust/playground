@@ -18,17 +18,21 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - name: Test
-        run: cargo test --locked
+      - name: Test, with each version of cel
+        run: |
+          versions=$(./versions.sh --locked)
+          for feature in $(echo "$versions" | cut -d' ' -f1); do
+            cargo test --locked --no-default-features --features "$feature"
+          done
       - name: Build
         run: ./build.sh --locked
       - uses: actions/setup-node@v7
         with:
           node-version: lts/*
-      - name: Smoke test the wasm, test what the browser keeps
+      - name: Smoke test each version's wasm, test what the browser keeps
         run: node --test tests/*.test.mjs
         env:
-          PLAYGROUND_WASM: dist/cel_playground.wasm
+          PLAYGROUND_DIST: dist
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

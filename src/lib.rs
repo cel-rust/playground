@@ -3,6 +3,18 @@
 //!
 //! [`evaluate`] does the work; [`abi`] exposes it to JavaScript as raw
 //! exports, strings in and a JSON outcome out (see `web/cel.js`).
+//!
+//! Each build runs one version of cel, the one its `cel-0-N` feature picks
+//! (see `Cargo.toml`): it is the `cel` crate to the rest of the code.
+
+// With two enabled, `cel` is defined twice: an error too
+#[cfg(feature = "cel-0-15")]
+extern crate cel_0_15 as cel;
+#[cfg(feature = "cel-0-16")]
+extern crate cel_0_16 as cel;
+
+#[cfg(not(any(feature = "cel-0-15", feature = "cel-0-16")))]
+compile_error!("enable one `cel-0-N` feature: the version of cel to build with");
 
 mod abi;
 mod ast;

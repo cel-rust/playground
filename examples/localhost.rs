@@ -5,19 +5,28 @@
 //! cargo run --example localhost            # another port: -- 8080
 //! ```
 //!
-//! It builds the wasm module first, then serves `web/` as it is on disk, so
-//! changes to the page show on reload; restart it after changing the Rust
-//! code. It only listens on 127.0.0.1.
+//! It builds a wasm module for each version of cel first, as `build.sh`
+//! does, then serves `web/` as it is on disk, so changes to the page show on
+//! reload; restart it after changing the Rust code. It only listens on
+//! 127.0.0.1.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
+use std::sync::Arc;
 use std::{env, fs, thread};
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 const WASM: &str = "cel_playground.wasm";
 const TARGET: &str = "wasm32-unknown-unknown";
+
+/// What's served: the files directly in `web/`, and what `build.sh` adds.
+struct Site {
+    web: PathBuf,
+    /// Each version of cel on offer, newest first, and its module.
+    modules: Vec<(String, Vec<u8>)>,
+}
 
 fn main() -> ExitCode {
     let port = match env::args().nth(1).map(|port| port.parse::<u16>()) {
@@ -28,8 +37,8 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let wasm = match build() {
-        Ok(wasm) => wasm,
+    let modules = match build() {
+        Ok(modules) => modules,
         Err(error) => {
             eprintln!("{error}");
             return ExitCode::FAILURE;
@@ -44,11 +53,14 @@ fn main() -> ExitCode {
     };
 
     println!("serving the playground on http://localhost:{port}/ (Ctrl+C to stop)");
-    let web = Path::new(ROOT).join("web");
+    let site = Arc::new(Site {
+        web: Path::new(ROOT).join("web"),
+        modules,
+    });
     for stream in listener.incoming().flatten() {
-        let (web, wasm) = (web.clone(), wasm.clone());
+        let site = Arc::clone(&site);
         thread::spawn(move || {
-            if let Err(error) = serve(&stream, &web, &wasm) {
+            if let Err(error) = serve(&stream, &site) {
                 eprintln!("{error}");
             }
         });
@@ -56,35 +68,67 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// Builds the module as `build.sh` does, and returns where it is.
-fn build() -> Result<PathBuf, String> {
+/// Builds a module for each version of cel, newest first, as `build.sh` does:
+/// one per `cel-0-N` feature, with the version of the 0.N line in
+/// `Cargo.lock` (see `versions.sh`).
+fn build() -> Result<Vec<(String, Vec<u8>)>, String> {
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-    let status = Command::new(&cargo)
-        .current_dir(ROOT)
-        .args(["build", "--release", "--target", TARGET])
-        .status()
-        .map_err(|error| format!("can't run cargo: {error}"))?;
-    if !status.success() {
-        return Err(format!("building the wasm module failed: {status}"));
-    }
-    // Wherever CARGO_TARGET_DIR or a config put it
-    let metadata = Command::new(&cargo)
-        .current_dir(ROOT)
-        .args(["metadata", "--format-version", "1", "--no-deps"])
-        .output()
-        .map_err(|error| format!("can't run cargo metadata: {error}"))?;
-    let metadata: serde_json::Value = serde_json::from_slice(&metadata.stdout)
+    let run = |args: &[&str]| {
+        let output = Command::new(&cargo)
+            .current_dir(ROOT)
+            .args(args)
+            .stderr(Stdio::inherit())
+            .output()
+            .map_err(|error| format!("can't run cargo: {error}"))?;
+        if !output.status.success() {
+            let command = args.join(" ");
+            return Err(format!("cargo {command} failed: {}", output.status));
+        }
+        String::from_utf8(output.stdout).map_err(|error| format!("cargo {}: {error}", args[0]))
+    };
+
+    let metadata = run(&["metadata", "--format-version", "1", "--no-deps"])?;
+    let metadata: serde_json::Value = serde_json::from_str(&metadata)
         .map_err(|error| format!("unexpected cargo metadata: {error}"))?;
+    // Wherever CARGO_TARGET_DIR or a config put it
     let target_directory = metadata["target_directory"]
         .as_str()
         .ok_or("cargo metadata has no target_directory")?;
-    Ok(Path::new(target_directory)
+    let wasm = Path::new(target_directory)
         .join(TARGET)
         .join("release")
-        .join(WASM))
+        .join(WASM);
+    // cel-0-16, of the 0.16 line, first
+    let mut lines: Vec<(&str, Vec<u32>)> = metadata["packages"][0]["features"]
+        .as_object()
+        .ok_or("cargo metadata has no features")?
+        .keys()
+        .filter_map(|feature| {
+            let numbers = feature.strip_prefix("cel-")?.split('-');
+            let line = numbers.map(|n| n.parse().ok()).collect::<Option<_>>()?;
+            Some((feature.as_str(), line))
+        })
+        .collect();
+    lines.sort_by(|a, b| b.1.cmp(&a.1));
+    if lines.is_empty() {
+        return Err("no cel-0-N features in Cargo.toml".to_owned());
+    }
+
+    let mut modules = Vec::new();
+    for (feature, _) in lines {
+        let line = feature["cel-".len()..].replace('-', ".");
+        let id = run(&["pkgid", "--quiet", &format!("cel@{line}")])?;
+        let version = id.trim().rsplit_once('@').map_or("unknown", |(_, v)| v);
+        let features = ["--no-default-features", "--features", feature];
+        run(&[&["build", "--release", "--target", TARGET], &features[..]].concat())?;
+        let module = fs::read(&wasm).map_err(|error| format!("{}: {error}", wasm.display()))?;
+        println!("built cel-{version}.wasm ({} bytes)", module.len());
+        modules.push((version.to_owned(), module));
+    }
+    Ok(modules)
 }
 
-fn serve(stream: &TcpStream, web: &Path, wasm: &Path) -> std::io::Result<()> {
+fn serve(stream: &TcpStream, site: &Site) -> std::io::Result<()> {
     let mut request = BufReader::new(stream.take(64 * 1024));
     let mut line = String::new();
     request.read_line(&mut line)?;
@@ -101,7 +145,7 @@ fn serve(stream: &TcpStream, web: &Path, wasm: &Path) -> std::io::Result<()> {
     }
 
     let response = match method.as_str() {
-        "GET" | "HEAD" => file(&path, web, wasm),
+        "GET" | "HEAD" => file(&path, site),
         _ => Err(405),
     };
     let mut out = stream;
@@ -135,9 +179,10 @@ fn serve(stream: &TcpStream, web: &Path, wasm: &Path) -> std::io::Result<()> {
     out.flush()
 }
 
-/// The file at `path`, and its content type: one directly in `web/`, or the
-/// module. Nothing else, so no `..`, encoded or not, gets out of `web/`.
-fn file(path: &str, web: &Path, wasm: &Path) -> Result<(Vec<u8>, &'static str), u16> {
+/// The file at `path`, and its content type: one directly in `web/`, a module,
+/// or the list of their versions. Nothing else, so no `..`, encoded or not,
+/// gets out of `web/`.
+fn file(path: &str, site: &Site) -> Result<(Vec<u8>, &'static str), u16> {
     let name = match path.strip_prefix('/') {
         Some("") => "index.html",
         Some(name) => name,
@@ -155,12 +200,19 @@ fn file(path: &str, web: &Path, wasm: &Path) -> Result<(Vec<u8>, &'static str), 
         Some("wasm") => "application/wasm",
         _ => "application/octet-stream",
     };
-    let file = if name == WASM {
-        wasm.to_path_buf()
-    } else {
-        web.join(name)
-    };
-    fs::read(file)
+    if name == "versions.json" {
+        let versions = site.modules.iter().map(|(version, _)| version.as_str());
+        let body = serde_json::Value::from_iter(versions).to_string();
+        return Ok((body.into_bytes(), content_type));
+    }
+    if let Some((_, module)) = site
+        .modules
+        .iter()
+        .find(|(version, _)| name == format!("cel-{version}.wasm"))
+    {
+        return Ok((module.clone(), content_type));
+    }
+    fs::read(site.web.join(name))
         .map(|body| (body, content_type))
         .map_err(|_| 404)
 }
