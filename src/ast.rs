@@ -9,19 +9,26 @@ use cel::common::ast::{EntryExpr, Expr, IdedExpr, LiteralValue, SourceInfo};
 use cel::Value;
 use serde_json::{json, Value as Json};
 
+use crate::engine;
 use crate::tokens::{self, Kind, Token};
 
-/// The tree of `expression` as JSON: `{"ok": true, "root": <node>}`, or
-/// `{"ok": false, "error": "<why it doesn't parse>"}`. A node is
-/// `{"kind", "detail", "id", "start", "end", "text", "from", "role",
+/// The tree of `expression` as JSON: `{"ok": true, "positioned": <bool>,
+/// "root": <node>}`, or `{"ok": false, "error": "<why it doesn't parse>"}`. A
+/// node is `{"kind", "detail", "id", "start", "end", "text", "from", "role",
 /// "children"}`: `start` and `end` in UTF-16 code units, `from` the macro (or
-/// `"parser"`) that made it, `null` when it's text of the expression.
+/// `"parser"`) that made it, `null` when it's text of the expression. Unless
+/// `positioned`, as with cel 0.14, cel doesn't say where nodes are: those are
+/// all `null`.
 pub fn to_json(expression: &str) -> String {
     let env = crate::ENV.with(Arc::clone);
-    match env.compile(expression) {
+    match engine::compile(&env, expression) {
         Ok(program) => {
             let source = Source::new(expression, program.source_info());
-            json!({ "ok": true, "root": source.node(program.expression(), None) })
+            json!({
+                "ok": true,
+                "positioned": source.positioned(),
+                "root": source.node(program.expression(), None),
+            })
         }
         Err(errors) => json!({ "ok": false, "error": errors.to_string() }),
     }
@@ -30,7 +37,8 @@ pub fn to_json(expression: &str) -> String {
 
 pub(crate) struct Source<'a> {
     pub(crate) text: &'a str,
-    info: &'a SourceInfo,
+    /// Where cel positions each node, if it says.
+    info: Option<&'a SourceInfo>,
     /// UTF-16 offsets, by UTF-8 offset, at char boundaries.
     pub(crate) utf16: Vec<usize>,
     /// The text, in UTF-16 code units.
@@ -41,7 +49,7 @@ pub(crate) struct Source<'a> {
 }
 
 impl<'a> Source<'a> {
-    pub(crate) fn new(text: &'a str, info: &'a SourceInfo) -> Self {
+    pub(crate) fn new(text: &'a str, info: Option<&'a SourceInfo>) -> Self {
         let mut utf16 = vec![0; text.len() + 1];
         let mut units = 0;
         for (byte, c) in text.char_indices() {
@@ -65,10 +73,15 @@ impl<'a> Source<'a> {
         }
     }
 
+    /// Whether cel says where nodes are.
+    pub(crate) fn positioned(&self) -> bool {
+        self.info.is_some()
+    }
+
     /// The UTF-16 range of node `id`: cel positions nodes at a token, in UTF-8
     /// offsets, its last byte included.
     pub(crate) fn range(&self, id: u64) -> Option<(usize, usize)> {
-        let (start, stop) = self.info.offset_for(id)?;
+        let (start, stop) = self.info?.offset_for(id)?;
         let (start, stop) = (start as usize, stop as usize);
         let end = (stop + 1..=self.text.len()).find(|&b| self.text.is_char_boundary(b))?;
         self.text
@@ -194,9 +207,11 @@ impl<'a> Source<'a> {
             }
         };
         let range = self.range(e.id);
-        let from = range.map_or(Some("parser".to_owned()), |(start, _)| {
-            self.made_by(&e.expr, start)
-        });
+        // Unpositioned: not said
+        let from = match range {
+            Some((start, _)) => self.made_by(&e.expr, start),
+            None => self.positioned().then(|| "parser".to_owned()),
+        };
         self.json(e.id, kind, detail, range, from, role, children)
     }
 
@@ -205,7 +220,7 @@ impl<'a> Source<'a> {
         let own = range
             .and_then(|(start, _)| self.token_at(start))
             .is_some_and(|(_, t)| self.token_text(t) == ":");
-        let from = (!own).then(|| "parser".to_owned());
+        let from = (self.positioned() && !own).then(|| "parser".to_owned());
         let (kind, detail, children) = match entry {
             EntryExpr::MapEntry(e) => (
                 "Entry",
@@ -325,6 +340,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn nodes_of_the_expression_are_its_own_text() {
         assert_eq!(
             lines("a.b + f(1u, 'é👋') in [x]"),
@@ -343,6 +359,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn positions_are_utf16() {
         let root = tree("'é👋' + x");
         let x = &root["children"][1];
@@ -350,6 +367,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn what_macros_make_is_theirs() {
         assert_eq!(
             lines("[1].map(x, x + y)"),
@@ -382,6 +400,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn what_the_parser_makes_is_its() {
         assert_eq!(
             lines("a.?b"),
@@ -392,6 +411,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "cel-0-14", ignore = "cel 0.14 doesn't position nodes")]
     fn entries_and_optionals() {
         assert_eq!(
             lines("{?'k': [?v, 1]}"),
@@ -408,6 +428,32 @@ mod tests {
             lines("Msg{f: 1}"),
             ["Struct Msg [{]", "Field f [:]", "Literal 1 [1]"]
         );
+    }
+
+    #[test]
+    #[cfg(feature = "cel-0-14")]
+    fn unpositioned_nodes_say_nothing_of_where_they_are() {
+        let result: Json = serde_json::from_str(&to_json("a.b + 1")).unwrap();
+        assert_eq!(result["positioned"], false);
+        let root = &result["root"];
+        assert_eq!(root["kind"], "Call");
+        assert_eq!(root["children"][0]["kind"], "Select");
+        for node in [
+            root,
+            &root["children"][0],
+            &root["children"][0]["children"][0],
+        ] {
+            for unsaid in ["start", "end", "text", "from"] {
+                assert_eq!(node[unsaid], Json::Null, "{unsaid}: {node}");
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(not(feature = "cel-0-14"))]
+    fn nodes_are_positioned() {
+        let result: Json = serde_json::from_str(&to_json("a")).unwrap();
+        assert_eq!(result["positioned"], true);
     }
 
     #[test]

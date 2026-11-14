@@ -9,8 +9,15 @@ Three panes: the expression, the JSON input, and the output, which shows the
 result or the error. It evaluates as you type; `Ctrl`/`Cmd`+`Enter` evaluates
 right away. With auto run off in the settings, only that, or Run, evaluates.
 
-- **Environment:** `Env::stdlib()`, with optional values, plus the strings,
-  lists, math and encoders extensions.
+- **Environment:** `Env::stdlib()`, with optional values, plus, from 0.15 on,
+  the strings, lists, math and encoders extensions.
+- **Version:** cel-rust 0.16.0, the newest, 0.15.0 or 0.14.5, chosen beside
+  the title. Each is a build of its own: only the one chosen is downloaded,
+  and switching runs what's there again with the other; the output says which
+  version it came from. cel 0.14 doesn't say where the nodes of what it parses
+  are: with it, identifiers are coloured by where they are only (a function
+  before a `(`, a field after a `.`), and the AST explorer can't point into
+  the expression. The examples that need what came later fail with it.
 - **Highlighting:** the expression is highlighted as you type, whether it
   parses or not. Once it parses, its identifiers are coloured by what the
   parsed tree says they are: variables, variables missing from the input
@@ -28,10 +35,14 @@ right away. With auto run off in the settings, only that, or Run, evaluates.
   numbers are `int`s (`uint`s past `i64::MAX`), other numbers `double`s.
 - **Output:** the result as a CEL literal (`1u`, `1.0`, `b"\x00"`,
   `timestamp("...")`, `optional.none()`), so its type shows.
-- **Sharing:** the expression and input live in the URL fragment, as does
-  whether the AST explorer is open, so a link reproduces them. "Report a bug
-  with this CEL expression", over the editor, opens cel-rust's bug form with
-  them filled in, and what evaluating them came to.
+- **Sharing:** the expression and input live in the URL fragment, as do the
+  version of cel-rust and whether the AST explorer is open, so a link
+  reproduces them. A link opens with its version, or the one of its line on
+  offer (0.16.1 for 0.16.0), else the newest; one made before there was a
+  choice opens with the newest, or, pasted into an open page, keeps the
+  version chosen. "Report a bug with this CEL expression", over the editor,
+  opens cel-rust's bug form with them filled in, the version, and what
+  evaluating them came to.
 - **Resuming:** what you last wrote or edited, expression and input, is kept
   in the browser: reloading, or coming back, resumes it. Loading an example
   doesn't replace it, until you edit the example; a link opens as it is.
@@ -55,20 +66,27 @@ cargo run --example localhost            # then open http://localhost:8000
 cargo run --example localhost -- 8080    # on another port
 ```
 
-It builds the wasm module and serves `web/` as it is on disk, so changes to the
-page show on reload; restart it after changing the Rust code. It only listens on
-127.0.0.1. Opening `web/index.html` as a file doesn't work: browsers don't load
-the scripts and the module from `file://` URLs.
+It builds a wasm module for each version of cel and serves `web/` as it is on
+disk, so changes to the page show on reload; restart it after changing the Rust
+code. It only listens on 127.0.0.1. Opening `web/index.html` as a file doesn't
+work: browsers don't load the scripts and the modules from `file://` URLs.
 
 `./build.sh` builds what gets deployed into `dist/`: the same files.
 
 ## Testing
 
 ```sh
-cargo test                                       # conversions, rendering, examples
-./build.sh && node --test tests/*.test.mjs       # the wasm, through web/cel.js;
-                                                 # the settings and draft, as kept
+cargo test                                       # conversions, rendering, examples,
+                                                 # with the newest cel
+cargo test --no-default-features --features cel-0-15  # the same, with 0.15
+                                                       # (or cel-0-14)
+./build.sh && node --test tests/*.test.mjs       # each version's wasm, through
+                                                 # web/cel.js; the settings and
+                                                 # draft, as kept; which version
+                                                 # a link gets
 ```
+
+CI runs `cargo test` with each version `./versions.sh` lists.
 
 The JavaScript tests need [Node.js](https://nodejs.org) (tested with 22), and
 nothing from npm.
@@ -76,12 +94,20 @@ nothing from npm.
 ## How it fits together
 
 - `src/lib.rs`: `evaluate(expression, input)`, returning the outcome as JSON.
+- `src/engine.rs`: what differs between versions of cel: the environment,
+  parsing, and where nodes are, which 0.14 doesn't say. What needs those
+  positions does without them.
+- `Cargo.toml`: each version of cel on offer is a `cel-0-N` dependency, of the
+  0.N line, and the feature of the same name, which a build enables one of;
+  `src/lib.rs` makes it the `cel` crate. `versions.sh` lists them, newest
+  first, with the version `Cargo.lock` has of each.
 - `src/tokens.rs`: the tokens to highlight, positioned in UTF-16 as JavaScript
-  indexes strings. cel 0.15's lexer isn't public, so this mirrors its rules
-  (`CEL.g4`); a test checks it against the positions of what cel parses. A
-  word cel reserves is a keyword where its parser rejects it (`if`, but not
-  `a.if`), which another test checks against cel's errors. The
-  page draws them in a `<pre>` behind the expression's transparent textarea.
+  indexes strings. cel's lexer isn't public, in any version on offer, so this
+  mirrors its rules (`CEL.g4`); a test checks it against the positions of what
+  0.15 and 0.16 parse. A word cel reserves is a keyword where its parser
+  rejects it (`if`, but not `a.if`), which another test checks against cel's
+  errors. The page draws them in a `<pre>` behind the expression's transparent
+  textarea.
 - `src/ast.rs`: the parsed tree for the explorer. cel positions each node at
   one token; a node whose token doesn't spell it (an identifier its name, an
   operator its symbol, a call its name before a `(`) was made by the macro
@@ -101,6 +127,9 @@ nothing from npm.
 - `web/cel.js`: the JavaScript side of that, shared by the page and the smoke
   test. A panic aborts the wasm instance; the message is reported and the
   next evaluation gets a fresh instance.
+- `web/versions.js`: which version's module runs what a link asks for.
+  `versions.json`, which `build.sh` writes, lists the versions; each module
+  is `cel-<version>.wasm`.
 - `web/draft.js`: what you last wrote, kept in localStorage. `app.js` keeps
   an example out of the address bar until it's edited, so reloading resumes
   the draft.
@@ -109,11 +138,24 @@ nothing from npm.
   flash.
 - `web/examples.json`: the examples, also evaluated by both test suites.
 - `examples/localhost.rs`: the local server, std only; it serves the files
-  directly in `web/` and the module, nothing else.
+  directly in `web/`, the modules and their `versions.json`, nothing else.
 
 ## Deploying
 
 `.github/workflows/pages.yml` tests, builds and deploys `dist/` to GitHub Pages
 on every push to `main`. In the repository settings, set Pages' source to
-"GitHub Actions". Dependabot opens a PR when cel is released; merging it
-deploys the new version.
+"GitHub Actions". Dependabot opens a PR when cel is released. A release of a
+line on offer (0.16.1) merges as it is, and deploys in its line's place; for a
+new line (0.17), offer another version instead, as below.
+
+## Offering another version of cel
+
+For 0.17, in `Cargo.toml`, add a `cel-0-17` dependency on `0.17.0` and a
+`cel-0-17` feature enabling it, and make it the default; in `src/lib.rs`, add
+it to the `extern crate`s and the `compile_error!`. `cargo build` locks it,
+and `versions.sh`, `build.sh`, CI and the page pick it up from there. To stop
+offering a version, remove it from the same places. Where versions differ,
+`src/engine.rs` tells them apart with `#[cfg(feature = "cel-0-N")]`; tests
+that can't pass with a version are ignored with it, saying why, and the
+examples it can't run are listed as `EXAMPLES_BEYOND`, in `src/lib.rs` and
+`tests/smoke.test.mjs`.

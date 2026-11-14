@@ -24,7 +24,12 @@
   <body>
     <header>
       <h1>CEL playground</h1>
-      <span id="version" class="muted">cel-rust</span>
+      <label class="version muted" title="The version of cel-rust that evaluates">
+        cel-rust
+        <select id="version" disabled>
+          <option>…</option>
+        </select>
+      </label>
       <nav>
         <select id="examples" aria-label="Load an example">
           <option value="" selected disabled>Load an example…</option>
@@ -131,6 +136,7 @@
         <h2>
           Output <span id="status" class="muted"></span>
           <span id="stale" class="muted">· edited since it ran</span>
+          <span id="evaluated-by" class="muted" title="The version of cel-rust that evaluated what's shown"></span>
           <button id="run" type="button" title="Ctrl+Enter">Run</button>
         </h2>
         <pre id="output" tabindex="0">Loading cel-rust…</pre>
@@ -139,8 +145,8 @@
 
     <footer class="muted">
       Evaluated in your browser by <a href="https://crates.io/crates/cel">cel-rust</a>, compiled to WebAssembly, with the standard library,
-      optional values, and the strings, lists, math and encoders extensions. Integral JSON numbers are <code>int</code>s, others
-      <code>double</code>s. <a href="https://github.com/cel-rust/playground">Source</a><span id="commit"></span>
+      optional values, and, from 0.15 on, the strings, lists, math and encoders extensions. Integral JSON numbers are <code>int</code>s,
+      others <code>double</code>s. <a href="https://github.com/cel-rust/playground">Source</a><span id="commit"></span>
     </footer>
   </body>
 </html>

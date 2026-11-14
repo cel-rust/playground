@@ -1,5 +1,6 @@
 //! Embeds what the page shows about this build: the version of `cel` it
-//! resolved from `Cargo.lock`, and the playground commit it was built from.
+//! runs, as `Cargo.lock` resolves it, and the playground commit it was built
+//! from.
 
 use std::fs;
 use std::path::Path;
@@ -10,8 +11,16 @@ fn main() {
     println!("cargo:rustc-env=PLAYGROUND_COMMIT={}", playground_commit());
 }
 
+/// The version of the `cel` the enabled `cel-0-N` feature builds with: the
+/// one of the 0.N line in `Cargo.lock`.
 fn cel_version() -> String {
     println!("cargo:rerun-if-changed=Cargo.lock");
+    let Some(line) = std::env::vars().find_map(|(name, _)| {
+        let minor = name.strip_prefix("CARGO_FEATURE_CEL_0_")?;
+        Some(format!("0.{minor}."))
+    }) else {
+        return "unknown".to_owned();
+    };
     let lock = fs::read_to_string("Cargo.lock").unwrap_or_default();
     lock.split("[[package]]")
         .find_map(|package| {
@@ -19,7 +28,9 @@ fn cel_version() -> String {
             lines.find(|line| *line == r#"name = "cel""#)?;
             lines
                 .find_map(|line| line.strip_prefix("version = "))
-                .map(|version| version.trim_matches('"').to_owned())
+                .map(|version| version.trim_matches('"'))
+                .filter(|version| version.starts_with(&line))
+                .map(str::to_owned)
         })
         .unwrap_or_else(|| "unknown".to_owned())
 }
