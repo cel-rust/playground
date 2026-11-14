@@ -13,11 +13,11 @@ right away. With auto run off in the settings, only that, or Run, evaluates.
   the strings, lists, math and encoders extensions.
 - **Version:** cel-rust 0.16.0, the newest, 0.15.0 or 0.14.5, chosen beside
   the title. Each is a build of its own: only the one chosen is downloaded,
-  and switching runs what's there again with the other. cel 0.14 doesn't say
-  where the nodes of what it parses are: with it, identifiers are coloured by
-  where they are only (a function before a `(`, a field after a `.`), and the
-  AST explorer can't point into the expression. The examples that need what
-  came later fail with it.
+  and switching runs what's there again with the other; the output says which
+  version it came from. cel 0.14 doesn't say where the nodes of what it parses
+  are: with it, identifiers are coloured by where they are only (a function
+  before a `(`, a field after a `.`), and the AST explorer can't point into
+  the expression. The examples that need what came later fail with it.
 - **Highlighting:** the expression is highlighted as you type, whether it
   parses or not. Once it parses, its identifiers are coloured by what the
   parsed tree says they are: variables, variables missing from the input

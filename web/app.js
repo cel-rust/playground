@@ -16,6 +16,7 @@ const input = $("input");
 const output = $("output");
 const outputPane = output.closest(".pane");
 const status = $("status");
+const evaluatedBy = $("evaluated-by");
 const examples = $("examples");
 const copyLink = $("copy-link");
 const report = $("report");
@@ -308,12 +309,16 @@ function renderAst(text, result) {
 
 // --- Evaluation ---
 
-/** Shows `text` in the output, highlighted if `result` says how. */
-function show(state, text, label, result = null) {
+/**
+ * Shows `text` in the output, highlighted if `result` says how, and the
+ * `version` of cel-rust it came from, if it came from one.
+ */
+function show(state, text, label, result = null, version = null) {
   outputPane.dataset.state = state;
   if (result) output.replaceChildren(spans(text, result));
   else output.textContent = text;
   status.textContent = label ? `· ${label}` : "";
+  evaluatedBy.textContent = version ? `by cel-rust ${version}` : "";
 }
 
 async function compile(file) {
@@ -441,13 +446,14 @@ async function main() {
     evaluated !== null &&
     (evaluated.state.e !== expression.value || evaluated.state.i !== input.value || evaluated.state.v !== version);
 
-  async function display({ outcome }) {
+  /** What evaluating came to, and the version that evaluated it. */
+  async function display({ state, outcome }) {
     if (outcome === null) {
       show("pending", "Type an expression above.");
     } else if (outcome.ok) {
-      show("ok", outcome.value, null, await highlightValue(outcome.value));
+      show("ok", outcome.value, null, await highlightValue(outcome.value), state.v);
     } else {
-      show("error", outcome.error, STAGES[outcome.stage] ?? outcome.stage);
+      show("error", outcome.error, STAGES[outcome.stage] ?? outcome.stage, null, state.v);
     }
   }
 

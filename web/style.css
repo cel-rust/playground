@@ -829,6 +829,7 @@ pre {
 /* With auto run off: Run, and whether the output is of what's there now */
 .output h2 {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 0.3rem;
 }
@@ -842,6 +843,20 @@ pre {
 
 #stale {
   display: none;
+}
+
+/* The version that evaluated what's shown, on the right, before Run */
+#evaluated-by {
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+
+#evaluated-by:empty {
+  display: none;
+}
+
+#evaluated-by:not(:empty) ~ #run {
+  margin-left: 0;
 }
 
 :root[data-auto-run="off"] #run,
